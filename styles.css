@@ -45,6 +45,7 @@ html[data-theme="dark"] {
   --color-text-on-primary: #0b0d12;
   --color-border-strong: rgba(255, 255, 255, 0.40); /* was 0.22 — WCAG 2.2 §1.4.11 needs 3:1 */
   --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-bg-code: #0b0d12;
   --color-primary: #53d3a6;
   --color-primary-hover: #6be0b6;
   --color-primary-active: #3bbd90;
@@ -68,6 +69,7 @@ html[data-theme="light"] {
   --color-text-on-primary: #0b0d12;
   --color-border-strong: rgba(15, 23, 42, 0.72); /* was 0.3 — WCAG 2.2 §1.4.11 needs 3:1 */
   --color-border-subtle: rgba(15, 23, 42, 0.12);
+  --color-bg-code: #e6ebf4;
   --color-primary: #4cc99f;
   --color-primary-hover: #66d7b1;
   --color-primary-active: #34b085;
@@ -393,7 +395,7 @@ body {
 }
 
 .preview pre {
-  background: #0b0d12;
+  background: var(--color-bg-code);
   padding: var(--space-4);
   border-radius: 12px;
   overflow: auto;
@@ -433,7 +435,7 @@ body {
 }
 
 .preview .mermaid {
-  background: #0b0d12;
+  background: var(--color-bg-code);
   padding: var(--space-3);
   border-radius: 12px;
   overflow: auto;

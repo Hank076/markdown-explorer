@@ -50,13 +50,22 @@ function applyTheme(theme) {
 }
 
 applyTheme(getPreferredTheme());
-if (mermaidApi) {
-  mermaidApi.initialize({
-    startOnLoad: false,
-    theme: "dark",
-    securityLevel: "strict",
-  });
+
+function getMermaidTheme() {
+  return rootEl.getAttribute("data-theme") === "dark" ? "dark" : "neutral";
 }
+
+function initMermaid() {
+  if (mermaidApi) {
+    mermaidApi.initialize({
+      startOnLoad: false,
+      theme: getMermaidTheme(),
+      securityLevel: "strict",
+    });
+  }
+}
+
+initMermaid();
 
 function setStatus(text, loading = false) {
   statusText.textContent = text;
@@ -314,6 +323,8 @@ if (themeToggle) {
     const nextTheme = rootEl.getAttribute("data-theme") === "dark" ? "light" : "dark";
     localStorage.setItem(themeStorageKey, nextTheme);
     applyTheme(nextTheme);
+    initMermaid();
+    renderPreview();
   });
 }
 
