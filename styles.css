@@ -39,11 +39,11 @@ html[data-theme="dark"] {
   --color-bg-overlay: #20283a;
   --color-text-primary: #e9edf5;
   --color-text-secondary: #a7b1c2;
-  --color-text-tertiary: #8c96a8;
+  --color-text-tertiary: #b5bfce; /* was #8c96a8 — Lc ≈ 80 on bg-base for 14px/400w Chinese */
   --color-text-placeholder: #6f7a8f;
   --color-text-disabled: #586174;
   --color-text-on-primary: #0b0d12;
-  --color-border-strong: rgba(255, 255, 255, 0.22);
+  --color-border-strong: rgba(255, 255, 255, 0.40); /* was 0.22 — WCAG 2.2 §1.4.11 needs 3:1 */
   --color-border-subtle: rgba(255, 255, 255, 0.08);
   --color-primary: #53d3a6;
   --color-primary-hover: #6be0b6;
@@ -62,11 +62,11 @@ html[data-theme="light"] {
   --color-bg-overlay: #e6ebf4;
   --color-text-primary: #0f172a;
   --color-text-secondary: #334155;
-  --color-text-tertiary: #475569;
+  --color-text-tertiary: #3f506a; /* was #475569 — darkened for Lc ≈ 83 on bg-base */
   --color-text-placeholder: #64748b;
   --color-text-disabled: #94a3b8;
   --color-text-on-primary: #0b0d12;
-  --color-border-strong: rgba(15, 23, 42, 0.3);
+  --color-border-strong: rgba(15, 23, 42, 0.72); /* was 0.3 — WCAG 2.2 §1.4.11 needs 3:1 */
   --color-border-subtle: rgba(15, 23, 42, 0.12);
   --color-primary: #4cc99f;
   --color-primary-hover: #66d7b1;
@@ -129,8 +129,9 @@ body {
 
 .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.22em;
-  font-size: 12px;
+  letter-spacing: 0.15em;
+  font-size: var(--font-size-body-sm); /* was 12px — clreq 禁止 12px 中文；升至 14px */
+  line-height: var(--line-height-sm);
   color: var(--color-text-tertiary);
   margin: 0 0 var(--space-1);
 }
@@ -156,6 +157,11 @@ body {
   box-shadow: var(--shadow-elevated);
   min-height: 40px;
   white-space: nowrap;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.primary:hover {
+  background: var(--color-primary-hover);
 }
 
 .primary .dot {
@@ -185,6 +191,11 @@ body {
   min-height: 40px;
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ghost:hover {
+  background: color-mix(in srgb, var(--color-text-secondary) 8%, transparent);
 }
 
 .tree {
@@ -225,7 +236,7 @@ body {
 }
 
 .tree .children {
-  margin-left: 18px;
+  margin-left: var(--space-4); /* was 18px — 非 4px 倍數，改為 16px */
   border-left: 1px dashed var(--color-border-subtle);
   padding-left: var(--space-2);
   display: flex;
@@ -293,6 +304,12 @@ body {
   color: var(--color-text-primary);
   cursor: pointer;
   min-height: 40px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.tab:hover:not(.active) {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg-raised));
+  border-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 .tab.active {
@@ -338,7 +355,7 @@ body {
 
 .empty-card ul {
   margin: var(--space-3) 0 0;
-  padding-left: 18px;
+  padding-left: var(--space-4); /* was 18px — 非 4px 倍數，改為 16px */
   color: var(--color-text-tertiary);
 }
 
