@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Markdown Explorer</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="libs/prism/prism-tomorrow.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" aria-label="檔案總管">
+        <div class="sidebar-header">
+          <div>
+            <p class="eyebrow">Local Workspace</p>
+            <h1>Markdown Explorer</h1>
+          </div>
+          <div class="sidebar-actions">
+            <button id="theme-toggle" class="ghost" type="button" aria-pressed="false">
+              切換主題
+            </button>
+            <button id="open-folder" class="primary" type="button">
+              <span class="dot"></span>
+              開啟資料夾
+            </button>
+          </div>
+        </div>
+        <div id="tree" class="tree" role="tree" aria-live="polite"></div>
+        <div class="sidebar-footer">
+          <p id="folder-name">尚未選擇資料夾</p>
+          <p class="hint">僅支援 Chrome/Edge，需手動授權存取</p>
+          <p class="copyright">© Hank 版權所有</p>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <div id="tabs" class="tabs" role="tablist" aria-label="已開啟檔案"></div>
+        <section class="viewer" aria-live="polite">
+          <div id="empty" class="empty-state">
+            <div class="empty-card">
+              <h2>開啟一個資料夾</h2>
+              <p>左側會顯示樹狀目錄，點選 .md 檔案即可在右側開啟。</p>
+              <ul>
+                <li>支援多檔分頁</li>
+                <li>支援語法高亮與 Mermaid sequenceDiagram</li>
+                <li>離線可用（無需連網）</li>
+              </ul>
+            </div>
+          </div>
+          <article id="preview" class="preview" aria-label="Markdown 預覽"></article>
+        </section>
+      </main>
+    </div>
+
+    <div id="statusbar" class="statusbar" role="status">
+      <span id="status-text">等待選擇資料夾</span>
+    </div>
+
+    <script src="libs/mermaid/mermaid.min.js"></script>
+    <script src="libs/prism/prism.js"></script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
