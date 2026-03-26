@@ -389,6 +389,7 @@ if (themeToggle) {
   themeToggle.addEventListener("click", () => {
     const nextTheme = rootEl.getAttribute("data-theme") === "dark" ? "light" : "dark";
     localStorage.setItem(themeStorageKey, nextTheme);
+    if (activePath) scrollPositions.set(activePath, viewerEl.scrollTop);
     applyTheme(nextTheme);
     initMermaid();
     renderPreview();
