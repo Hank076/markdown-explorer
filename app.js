@@ -18,6 +18,7 @@ let activePath = null;
 const handleMap = new Map();
 const openFiles = new Map();
 const openOrder = [];
+const scrollPositions = new Map();
 let idSeed = 0;
 
 marked.use({
@@ -222,6 +223,7 @@ function renderTabs() {
 
 function closeFile(path) {
   openFiles.delete(path);
+  scrollPositions.delete(path);
   const index = openOrder.indexOf(path);
   if (index >= 0) {
     openOrder.splice(index, 1);
@@ -234,6 +236,7 @@ function closeFile(path) {
 }
 
 function setActiveFile(path) {
+  if (activePath) scrollPositions.set(activePath, viewerEl.scrollTop);
   activePath = path;
   renderTabs();
   setActiveTree(path);
@@ -254,7 +257,6 @@ async function openFile(fileHandle, path, sourceButton) {
     sourceButton.classList.add("active");
   }
   setActiveFile(path);
-  viewerEl.scrollTop = 0;
   setStatus(`已開啟：${path}`);
 }
 
@@ -363,6 +365,7 @@ function renderPreview() {
   });
 
   setPreviewVisible(true);
+  viewerEl.scrollTop = scrollPositions.get(activePath) ?? 0;
 }
 
 openFolderButton.addEventListener("click", async () => {
