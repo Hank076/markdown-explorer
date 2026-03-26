@@ -2,15 +2,18 @@
 
 A browser-based Markdown viewer. Open a local folder, browse files in the sidebar tree, and preview multiple `.md` files in tabs — all without any build step or installation.
 
+[繁體中文 →](./README.zh-TW.md)
+
 ## Features
 
 - Folder tree sidebar with drag-to-resize and collapsible toggle
-- Multi-tab Markdown preview
+- Multi-tab Markdown preview with scroll position preserved per file
 - Syntax highlighting via [highlight.js](https://highlightjs.org/) and [Prism](https://prismjs.com/)
 - [Mermaid](https://mermaid.js.org/) diagram rendering (flowchart, sequence, Gantt, etc.)
 - Multiple themes with persistent preference
-- Scroll position preserved per file
-- Works entirely in the browser — no server-side code
+- **UI language toggle** — Traditional Chinese / English, saved to localStorage
+- Accessibility: ARIA labels, `aria-pressed` states, `:focus-visible` support
+- Works entirely in the browser — no build step, no server-side code
 
 ## Requirements
 
@@ -36,20 +39,36 @@ Then open `http://localhost:3000` (or whichever port) in Chrome or Edge.
 
 ## Usage
 
-1. Click **開啟資料夾 / Open Folder** and grant permission
+1. Click **Open Folder** and grant permission
 2. Click any `.md` file in the sidebar to open it in a new tab
-3. Switch themes from the top-right menu
+3. Drag the sidebar edge to resize, or click the toggle button to collapse it
+4. Click the sun/moon icon (top-right) to switch themes
+5. Click the language button (**中 / EN**) to toggle the UI language
+
+## Project Structure
+
+```
+markdown-explorer/
+├── index.html        # App shell
+├── app.js            # All application logic
+├── styles.css        # Styles
+├── locales/
+│   ├── zh-TW.json    # Traditional Chinese strings
+│   └── en.json       # English strings
+├── libs/             # Vendored dependencies (no npm install needed at runtime)
+└── docs/             # Design documents
+```
 
 ## Dependencies
 
 All dependencies are vendored in `libs/` — no `npm install` needed to run the app.
 
-| Package | License |
-|---------|---------|
-| [marked](https://github.com/markedjs/marked) | MIT |
-| [highlight.js](https://github.com/highlightjs/highlight.js) | BSD-3-Clause |
-| [Prism](https://github.com/PrismLibrary/Prism) | MIT |
-| [Mermaid](https://github.com/mermaid-js/mermaid) | MIT |
+| Package | Version | License |
+|---------|---------|---------|
+| [marked](https://github.com/markedjs/marked) | ^17 | MIT |
+| [highlight.js](https://github.com/highlightjs/highlight.js) | ^11 | BSD-3-Clause |
+| [Prism](https://github.com/PrismLibrary/Prism) | ^1.30 | MIT |
+| [Mermaid](https://github.com/mermaid-js/mermaid) | ^11 | MIT |
 
 ## License
 
