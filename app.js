@@ -396,8 +396,8 @@ function setSidebarCollapsed(collapsed) {
   appEl.classList.toggle("sidebar-collapsed", collapsed);
   if (collapsed) {
     const current = parseInt(appEl.style.getPropertyValue("--sidebar-width"), 10);
-    if (current > 0) savedSidebarWidth = current;
-    appEl.style.setProperty("--sidebar-width", "0px");
+    if (current > 40) savedSidebarWidth = current;
+    appEl.style.setProperty("--sidebar-width", "40px");
   } else {
     appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   }
