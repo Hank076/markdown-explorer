@@ -165,8 +165,6 @@ function applyTheme(theme) {
   }
 }
 
-applyTheme(getPreferredTheme());
-
 function getMermaidTheme() {
   return rootEl.getAttribute("data-theme") === "dark" ? "dark" : "neutral";
 }
@@ -180,8 +178,6 @@ function initMermaid() {
     });
   }
 }
-
-initMermaid();
 
 function setStatus(text, loading = false) {
   statusText.textContent = text;
@@ -516,8 +512,6 @@ function setSidebarCollapsed(collapsed) {
   }
 }
 
-setSidebarCollapsed(false);
-
 if (sidebarToggle) {
   sidebarToggle.addEventListener("click", () => {
     setSidebarCollapsed(!appEl.classList.contains("sidebar-collapsed"));
@@ -552,4 +546,20 @@ if (resizerEl) {
   });
 }
 
-setPreviewVisible(false);
+if (langToggle) {
+  langToggle.addEventListener("click", () => {
+    const nextLang = currentLang === "zh-TW" ? "en" : "zh-TW";
+    setLang(nextLang);
+  });
+}
+
+async function init() {
+  await loadLocale(currentLang);
+  applyLocale(currentLang);
+  applyTheme(getPreferredTheme());
+  initMermaid();
+  setSidebarCollapsed(false);
+  setPreviewVisible(false);
+}
+
+init();
