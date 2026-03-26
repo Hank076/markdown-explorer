@@ -21,8 +21,11 @@ marked.use({
     html() {
       return "";
     },
-    link(href, title, text) {
+    link({ href, title, text }) {
       const safeTitle = title ? ` title="${title}"` : "";
+      if (href && !/^(https?:\/\/|\/\/|mailto:|#)/.test(href)) {
+        return `<a href="${href}" class="internal-link" data-href="${href}"${safeTitle}>${text}</a>`;
+      }
       return `<a href="${href}" target="_blank" rel="noopener noreferrer"${safeTitle}>${text}</a>`;
     },
   },
@@ -32,6 +35,9 @@ const mermaidApi = window.mermaid;
 const prismApi = window.Prism;
 const rootEl = document.documentElement;
 const themeStorageKey = "markdown-explorer-theme";
+
+const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 
 function getPreferredTheme() {
   const stored = localStorage.getItem(themeStorageKey);
@@ -45,7 +51,8 @@ function applyTheme(theme) {
   rootEl.setAttribute("data-theme", theme);
   if (themeToggle) {
     themeToggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-    themeToggle.textContent = theme === "dark" ? "切換為亮色" : "切換為暗色";
+    themeToggle.setAttribute("aria-label", theme === "dark" ? "切換為亮色模式" : "切換為暗色模式");
+    themeToggle.innerHTML = theme === "dark" ? ICON_SUN : ICON_MOON;
   }
 }
 
@@ -242,6 +249,49 @@ async function openFile(fileHandle, path, sourceButton) {
   setStatus(`已開啟：${path}`);
 }
 
+function resolvePath(path) {
+  const parts = path.split("/");
+  const result = [];
+  for (const part of parts) {
+    if (part === ".") continue;
+    if (part === "..") {
+      result.pop();
+    } else if (part !== "") {
+      result.push(part);
+    }
+  }
+  return result.join("/");
+}
+
+async function findFileHandle(path) {
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length === 0) return null;
+  let dirHandle = rootHandle;
+  try {
+    for (let i = 0; i < parts.length - 1; i++) {
+      dirHandle = await dirHandle.getDirectoryHandle(parts[i]);
+    }
+    return await dirHandle.getFileHandle(parts[parts.length - 1]);
+  } catch {
+    return null;
+  }
+}
+
+async function navigateToInternalLink(href) {
+  if (!rootHandle) return;
+  const baseDir =
+    activePath && activePath.includes("/")
+      ? activePath.substring(0, activePath.lastIndexOf("/") + 1)
+      : "";
+  const resolvedPath = resolvePath(baseDir + href);
+  const fileHandle = await findFileHandle(resolvedPath);
+  if (fileHandle) {
+    await openFile(fileHandle, resolvedPath, null);
+  } else {
+    alert(`找不到文件：${resolvedPath}`);
+  }
+}
+
 function renderPreview() {
   if (!activePath) {
     setPreviewVisible(false);
@@ -296,6 +346,13 @@ function renderPreview() {
       node.appendChild(pre);
     });
   }
+
+  previewEl.querySelectorAll("a.internal-link").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigateToInternalLink(link.dataset.href);
+    });
+  });
 
   folderNameEl.textContent = rootHandle ? rootHandle.name : "尚未選擇資料夾";
   setPreviewVisible(true);

@@ -86,7 +86,8 @@ html[data-theme="light"] {
 
 body {
   margin: 0;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: radial-gradient(circle at top, var(--bg-decor-1), transparent 45%),
     radial-gradient(circle at 25% 20%, var(--bg-decor-2), transparent 35%),
     var(--color-bg-base);
@@ -103,7 +104,7 @@ body {
 .app {
   display: grid;
   grid-template-columns: 320px 1fr;
-  min-height: calc(100vh - 44px);
+  height: calc(100vh - 44px);
 }
 
 .sidebar {
@@ -113,29 +114,14 @@ body {
   flex-direction: column;
   padding: var(--space-6) var(--space-5, 20px) var(--space-4);
   gap: var(--space-5, 20px);
+  overflow: hidden;
 }
 
 .sidebar-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-}
-
-.sidebar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  align-items: flex-end;
-}
-
-.eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  font-size: var(--font-size-body-sm); /* was 12px — clreq 禁止 12px 中文；升至 14px */
-  line-height: var(--line-height-sm);
-  color: var(--color-text-tertiary);
-  margin: 0 0 var(--space-1);
 }
 
 .sidebar h1 {
@@ -176,6 +162,7 @@ body {
 
 .primary:focus-visible,
 .ghost:focus-visible,
+.theme-toggle-btn:focus-visible,
 .tree button:focus-visible,
 .tab:focus-visible,
 .close-tab:focus-visible {
@@ -283,16 +270,45 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+  padding-right: var(--space-4);
 }
 
 .tabs {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-4) var(--space-5, 20px) 0;
+  padding: var(--space-4) var(--space-5);
   flex-wrap: wrap;
-  border-bottom: 1px solid var(--color-border-subtle);
-  min-height: 56px;
+  flex: 1;
+}
+
+.theme-toggle-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent);
+  color: var(--color-text-primary);
 }
 
 .tab {

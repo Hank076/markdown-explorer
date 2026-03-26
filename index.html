@@ -11,19 +11,11 @@
     <div class="app">
       <aside class="sidebar" aria-label="檔案總管">
         <div class="sidebar-header">
-          <div>
-            <p class="eyebrow">Local Workspace</p>
-            <h1>Markdown Explorer</h1>
-          </div>
-          <div class="sidebar-actions">
-            <button id="theme-toggle" class="ghost" type="button" aria-pressed="false">
-              切換主題
-            </button>
-            <button id="open-folder" class="primary" type="button">
-              <span class="dot"></span>
-              開啟資料夾
-            </button>
-          </div>
+          <h1>Markdown Explorer</h1>
+          <button id="open-folder" class="primary" type="button">
+            <span class="dot"></span>
+            開啟資料夾
+          </button>
         </div>
         <div id="tree" class="tree" role="tree" aria-live="polite"></div>
         <div class="sidebar-footer">
@@ -34,7 +26,10 @@
       </aside>
 
       <main class="workspace">
-        <div id="tabs" class="tabs" role="tablist" aria-label="已開啟檔案"></div>
+        <div class="topbar">
+          <div id="tabs" class="tabs" role="tablist" aria-label="已開啟檔案"></div>
+          <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="切換主題"></button>
+        </div>
         <section class="viewer" aria-live="polite">
           <div id="empty" class="empty-state">
             <div class="empty-card">
