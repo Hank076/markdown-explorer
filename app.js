@@ -11,6 +11,7 @@ const statusText = document.getElementById("status-text");
 const appEl = document.querySelector(".app");
 const sidebarEl = document.querySelector(".sidebar");
 const resizerEl = document.querySelector(".sidebar-resizer");
+const viewerEl = document.querySelector(".viewer");
 
 let rootHandle = null;
 let activePath = null;
@@ -360,6 +361,7 @@ function renderPreview() {
     });
   });
 
+  viewerEl.scrollTop = 0;
   setPreviewVisible(true);
 }
 
