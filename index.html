@@ -10,17 +10,17 @@
   <body>
     <div class="app">
       <aside class="sidebar" aria-label="檔案總管">
-        <div class="sidebar-topbar">
-          <button id="sidebar-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="收合側邊欄"></button>
-        </div>
-        <div class="sidebar-body">
-          <div class="sidebar-header">
+        <div class="sidebar-header">
+          <div class="sidebar-header-content">
             <h1>Markdown Explorer</h1>
             <button id="open-folder" class="primary" type="button">
               <span class="dot"></span>
               開啟資料夾
             </button>
           </div>
+          <button id="sidebar-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="收合側邊欄"></button>
+        </div>
+        <div class="sidebar-body">
           <div id="tree" class="tree" role="tree" aria-live="polite"></div>
           <div class="sidebar-footer">
             <p class="hint">僅支援 Chrome/Edge，需手動授權存取</p>
