@@ -109,12 +109,22 @@ body {
   transition: grid-template-columns 0.25s ease;
 }
 
-.app.sidebar-collapsed {
-  --sidebar-width: 0px;
-}
-
 .app.sidebar-collapsed .sidebar-resizer {
   display: none;
+}
+
+.sidebar-header,
+.tree,
+.sidebar-footer {
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+}
+
+.app.sidebar-collapsed .sidebar-header,
+.app.sidebar-collapsed .tree,
+.app.sidebar-collapsed .sidebar-footer {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sidebar {

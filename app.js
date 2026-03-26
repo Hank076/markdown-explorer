@@ -8,7 +8,6 @@ const tabsEl = document.getElementById("tabs");
 const previewEl = document.getElementById("preview");
 const emptyEl = document.getElementById("empty");
 const statusText = document.getElementById("status-text");
-const folderNameEl = document.getElementById("folder-name");
 const appEl = document.querySelector(".app");
 const sidebarEl = document.querySelector(".sidebar");
 const resizerEl = document.querySelector(".sidebar-resizer");
@@ -257,19 +256,6 @@ async function openFile(fileHandle, path, sourceButton) {
   setStatus(`已開啟：${path}`);
 }
 
-function updateFolderBreadcrumb() {
-  if (!rootHandle) {
-    folderNameEl.textContent = "尚未選擇資料夾";
-    return;
-  }
-  if (!activePath || !activePath.includes("/")) {
-    folderNameEl.textContent = rootHandle.name;
-    return;
-  }
-  const parentDirs = activePath.split("/").slice(0, -1);
-  folderNameEl.textContent = [rootHandle.name, ...parentDirs].join(" / ");
-}
-
 function resolvePath(path) {
   const parts = path.split("/");
   const result = [];
@@ -316,7 +302,6 @@ async function navigateToInternalLink(href) {
 function renderPreview() {
   if (!activePath) {
     setPreviewVisible(false);
-    updateFolderBreadcrumb();
     return;
   }
   const file = openFiles.get(activePath);
@@ -375,7 +360,6 @@ function renderPreview() {
     });
   });
 
-  updateFolderBreadcrumb();
   setPreviewVisible(true);
 }
 
@@ -406,8 +390,17 @@ if (themeToggle) {
   });
 }
 
+let savedSidebarWidth = 320;
+
 function setSidebarCollapsed(collapsed) {
   appEl.classList.toggle("sidebar-collapsed", collapsed);
+  if (collapsed) {
+    const current = parseInt(appEl.style.getPropertyValue("--sidebar-width"), 10);
+    if (current > 0) savedSidebarWidth = current;
+    appEl.style.setProperty("--sidebar-width", "0px");
+  } else {
+    appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
+  }
   if (sidebarToggle) {
     sidebarToggle.setAttribute("aria-pressed", collapsed ? "true" : "false");
     sidebarToggle.setAttribute("aria-label", collapsed ? "展開側邊欄" : "收合側邊欄");
@@ -437,6 +430,7 @@ if (resizerEl) {
 
     const onMouseUp = () => {
       resizerEl.classList.remove("dragging");
+      savedSidebarWidth = parseInt(appEl.style.getPropertyValue("--sidebar-width"), 10) || savedSidebarWidth;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       document.removeEventListener("mousemove", onMouseMove);
