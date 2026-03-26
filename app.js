@@ -2,12 +2,16 @@ import { marked } from "./libs/marked/marked.esm.js";
 
 const openFolderButton = document.getElementById("open-folder");
 const themeToggle = document.getElementById("theme-toggle");
+const sidebarToggle = document.getElementById("sidebar-toggle");
 const treeEl = document.getElementById("tree");
 const tabsEl = document.getElementById("tabs");
 const previewEl = document.getElementById("preview");
 const emptyEl = document.getElementById("empty");
 const statusText = document.getElementById("status-text");
 const folderNameEl = document.getElementById("folder-name");
+const appEl = document.querySelector(".app");
+const sidebarEl = document.querySelector(".sidebar");
+const resizerEl = document.querySelector(".sidebar-resizer");
 
 let rootHandle = null;
 let activePath = null;
@@ -38,6 +42,8 @@ const themeStorageKey = "markdown-explorer-theme";
 
 const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+const ICON_PANEL_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m16 15-3-3 3-3"/></svg>`;
+const ICON_PANEL_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m12 9 3 3-3 3"/></svg>`;
 
 function getPreferredTheme() {
   const stored = localStorage.getItem(themeStorageKey);
@@ -138,10 +144,12 @@ function renderTreeNode(parentEl, entry, depth, parentPath) {
       if (isExpanded) {
         children.hidden = true;
         button.dataset.expanded = "false";
+        button.querySelector(".icon").textContent = "📁";
         return;
       }
       button.dataset.expanded = "true";
       children.hidden = false;
+      button.querySelector(".icon").textContent = "📂";
       if (button.dataset.loaded === "true") {
         return;
       }
@@ -249,6 +257,19 @@ async function openFile(fileHandle, path, sourceButton) {
   setStatus(`已開啟：${path}`);
 }
 
+function updateFolderBreadcrumb() {
+  if (!rootHandle) {
+    folderNameEl.textContent = "尚未選擇資料夾";
+    return;
+  }
+  if (!activePath || !activePath.includes("/")) {
+    folderNameEl.textContent = rootHandle.name;
+    return;
+  }
+  const parentDirs = activePath.split("/").slice(0, -1);
+  folderNameEl.textContent = [rootHandle.name, ...parentDirs].join(" / ");
+}
+
 function resolvePath(path) {
   const parts = path.split("/");
   const result = [];
@@ -295,7 +316,7 @@ async function navigateToInternalLink(href) {
 function renderPreview() {
   if (!activePath) {
     setPreviewVisible(false);
-    folderNameEl.textContent = rootHandle ? rootHandle.name : "尚未選擇資料夾";
+    updateFolderBreadcrumb();
     return;
   }
   const file = openFiles.get(activePath);
@@ -354,7 +375,7 @@ function renderPreview() {
     });
   });
 
-  folderNameEl.textContent = rootHandle ? rootHandle.name : "尚未選擇資料夾";
+  updateFolderBreadcrumb();
   setPreviewVisible(true);
 }
 
@@ -382,6 +403,50 @@ if (themeToggle) {
     applyTheme(nextTheme);
     initMermaid();
     renderPreview();
+  });
+}
+
+function setSidebarCollapsed(collapsed) {
+  appEl.classList.toggle("sidebar-collapsed", collapsed);
+  if (sidebarToggle) {
+    sidebarToggle.setAttribute("aria-pressed", collapsed ? "true" : "false");
+    sidebarToggle.setAttribute("aria-label", collapsed ? "展開側邊欄" : "收合側邊欄");
+    sidebarToggle.innerHTML = collapsed ? ICON_PANEL_OPEN : ICON_PANEL_CLOSE;
+  }
+}
+
+setSidebarCollapsed(false);
+
+if (sidebarToggle) {
+  sidebarToggle.addEventListener("click", () => {
+    setSidebarCollapsed(!appEl.classList.contains("sidebar-collapsed"));
+  });
+}
+
+if (resizerEl) {
+  resizerEl.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarEl.getBoundingClientRect().width;
+    resizerEl.classList.add("dragging");
+
+    const onMouseMove = (moveEvent) => {
+      const newWidth = Math.max(160, Math.min(600, startWidth + moveEvent.clientX - startX));
+      appEl.style.setProperty("--sidebar-width", `${newWidth}px`);
+    };
+
+    const onMouseUp = () => {
+      resizerEl.classList.remove("dragging");
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
   });
 }
 
