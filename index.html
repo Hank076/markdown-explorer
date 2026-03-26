@@ -15,7 +15,7 @@
             <h1>Markdown Explorer</h1>
             <button id="open-folder" class="primary" type="button">
               <span class="dot"></span>
-              開啟資料夾
+              <span id="open-folder-label">開啟資料夾</span>
             </button>
           </div>
           <button id="sidebar-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="收合側邊欄"></button>
@@ -34,17 +34,18 @@
       <main class="workspace">
         <div class="topbar">
           <div id="tabs" class="tabs" role="tablist" aria-label="已開啟檔案"></div>
+          <button id="lang-toggle" class="theme-toggle-btn" type="button" aria-label="Switch to English">中</button>
           <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="切換主題"></button>
         </div>
         <section class="viewer" aria-live="polite">
           <div id="empty" class="empty-state">
             <div class="empty-card">
-              <h2>開啟一個資料夾</h2>
-              <p>左側會顯示樹狀目錄，<br>點選 .md 檔案即可在右側開啟。</p>
+              <h2 id="empty-title">開啟一個資料夾</h2>
+              <p id="empty-desc">左側會顯示樹狀目錄，點選 .md 檔案即可在右側開啟。</p>
               <ul>
-                <li>支援多檔分頁</li>
-                <li>支援語法高亮與 Mermaid sequenceDiagram</li>
-                <li>離線可用（無需連網）</li>
+                <li id="empty-feature1">支援多檔分頁</li>
+                <li id="empty-feature2">支援語法高亮與 Mermaid sequenceDiagram</li>
+                <li id="empty-feature3">離線可用（無需連網）</li>
               </ul>
             </div>
           </div>
