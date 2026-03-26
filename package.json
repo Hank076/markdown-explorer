@@ -1,14 +1,21 @@
 {
-  "name": "markdown-preview",
+  "name": "markdown-explorer",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A browser-based Markdown viewer with folder tree, multi-tab preview, Mermaid diagrams, and syntax highlighting — no build step required.",
+  "author": "Hank",
+  "license": "MIT",
+  "keywords": [
+    "markdown",
+    "preview",
+    "viewer",
+    "mermaid",
+    "highlight",
+    "file-system-access-api",
+    "no-build"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "npx serve ."
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "highlight.js": "^11.11.1",
     "marked": "^17.0.5",
