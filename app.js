@@ -13,6 +13,107 @@ const sidebarEl = document.querySelector(".sidebar");
 const resizerEl = document.querySelector(".sidebar-resizer");
 const viewerEl = document.querySelector(".viewer");
 
+const langToggle = document.getElementById("lang-toggle");
+
+const langStorageKey = "markdown-explorer-lang";
+// BCP 47 tag map: locale key → precise html lang attribute value
+const langTagMap = { "zh-TW": "zh-Hant-TW", en: "en" };
+let currentLang = localStorage.getItem(langStorageKey) || "zh-TW";
+let translations = {};
+
+async function loadLocale(lang) {
+  try {
+    const res = await fetch(`locales/${lang}.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    translations = await res.json();
+  } catch {
+    // If translations is still empty (first load, fetch failed), attempt zh-TW fallback
+    if (Object.keys(translations).length === 0 && lang !== "zh-TW") {
+      try {
+        const fallback = await fetch("locales/zh-TW.json");
+        if (fallback.ok) translations = await fallback.json();
+      } catch {
+        // Last resort: translations stays empty; t() returns raw keys
+      }
+    }
+  }
+}
+
+function t(key, vars = {}) {
+  let str = translations[key] ?? key;
+  for (const [k, v] of Object.entries(vars)) {
+    str = str.replace(`{${k}}`, String(v));
+  }
+  return str;
+}
+
+function applyLocale(lang) {
+  document.documentElement.lang = langTagMap[lang] || lang;
+
+  const openFolderLabel = document.getElementById("open-folder-label");
+  if (openFolderLabel) openFolderLabel.textContent = t("btn.openFolder");
+
+  const hintEl = document.querySelector(".sidebar-footer .hint");
+  if (hintEl) hintEl.textContent = t("sidebar.hint");
+
+  const copyrightEl = document.querySelector(".sidebar-footer .copyright");
+  if (copyrightEl) copyrightEl.textContent = t("sidebar.copyright");
+
+  const emptyTitle = document.getElementById("empty-title");
+  if (emptyTitle) emptyTitle.textContent = t("empty.title");
+
+  const emptyDesc = document.getElementById("empty-desc");
+  if (emptyDesc) emptyDesc.textContent = t("empty.desc");
+
+  const f1 = document.getElementById("empty-feature1");
+  if (f1) f1.textContent = t("empty.feature1");
+
+  const f2 = document.getElementById("empty-feature2");
+  if (f2) f2.textContent = t("empty.feature2");
+
+  const f3 = document.getElementById("empty-feature3");
+  if (f3) f3.textContent = t("empty.feature3");
+
+  if (sidebarEl) sidebarEl.setAttribute("aria-label", t("aria.sidebar"));
+  if (tabsEl) tabsEl.setAttribute("aria-label", t("aria.tabs"));
+  if (previewEl) previewEl.setAttribute("aria-label", t("aria.preview"));
+
+  // Update theme toggle aria-label based on current theme
+  const currentTheme = rootEl.getAttribute("data-theme");
+  if (themeToggle && currentTheme) {
+    themeToggle.setAttribute(
+      "aria-label",
+      currentTheme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark")
+    );
+  }
+
+  if (langToggle) {
+    langToggle.textContent = t("lang.current");
+    langToggle.setAttribute("aria-label", t("lang.switchLabel"));
+    langToggle.setAttribute("aria-pressed", lang === "en" ? "true" : "false");
+  }
+
+  if (!rootHandle) {
+    statusText.textContent = t("status.waiting");
+  }
+}
+
+async function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem(langStorageKey, lang);
+  await loadLocale(lang);
+  applyLocale(lang);
+  // Re-render icon and aria-pressed state on theme toggle; aria-label already set by applyLocale
+  applyTheme(rootEl.getAttribute("data-theme") || getPreferredTheme());
+  // Update sidebar toggle aria-label only — avoid calling setSidebarCollapsed() which resets --sidebar-width
+  if (sidebarToggle) {
+    const isCollapsed = appEl.classList.contains("sidebar-collapsed");
+    sidebarToggle.setAttribute("aria-label", isCollapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
+  }
+  // Refresh already-open tab close-button aria-labels
+  renderTabs();
+}
+
 let rootHandle = null;
 let activePath = null;
 const handleMap = new Map();
