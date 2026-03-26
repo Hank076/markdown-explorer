@@ -254,6 +254,7 @@ async function openFile(fileHandle, path, sourceButton) {
     sourceButton.classList.add("active");
   }
   setActiveFile(path);
+  viewerEl.scrollTop = 0;
   setStatus(`已開啟：${path}`);
 }
 
@@ -361,7 +362,6 @@ function renderPreview() {
     });
   });
 
-  viewerEl.scrollTop = 0;
   setPreviewVisible(true);
 }
 
