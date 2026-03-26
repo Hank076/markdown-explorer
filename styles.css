@@ -134,6 +134,7 @@ body {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
+  gap: 0;
 }
 
 .sidebar-header-content {
@@ -174,6 +175,28 @@ body {
   font-size: var(--font-size-h3);
   line-height: var(--line-height-h3);
   font-weight: 600;
+}
+
+.sidebar-header .primary {
+  box-shadow: none;
+}
+
+.sidebar-collapsed-label {
+  display: none;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-body-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.05em;
+  align-self: center;
+  margin-top: var(--space-3);
+  pointer-events: none;
+}
+
+.app.sidebar-collapsed .sidebar-collapsed-label {
+  display: block;
 }
 
 .primary {
