@@ -160,7 +160,7 @@ function applyTheme(theme) {
   rootEl.setAttribute("data-theme", theme);
   if (themeToggle) {
     themeToggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-    themeToggle.setAttribute("aria-label", theme === "dark" ? "切換為亮色模式" : "切換為暗色模式");
+    themeToggle.setAttribute("aria-label", theme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark"));
     themeToggle.innerHTML = theme === "dark" ? ICON_SUN : ICON_MOON;
   }
 }
@@ -257,10 +257,10 @@ function renderTreeNode(parentEl, entry, depth, parentPath) {
         return;
       }
       button.dataset.loaded = "true";
-      setStatus(`讀取資料夾：${currentPath}`, true);
+      setStatus(t("status.readingFolder", { path: currentPath }), true);
       const childEntries = await readDirectoryEntries(entry.handle);
       childEntries.forEach((child) => renderTreeNode(children, child, depth + 1, `${currentPath}/`));
-      setStatus(`就緒：${currentPath}`);
+      setStatus(t("status.readyPath", { path: currentPath }));
     });
 
     wrapper.append(button, children);
@@ -280,10 +280,10 @@ async function renderTree() {
   if (!rootHandle) {
     return;
   }
-  setStatus("掃描資料夾中...", true);
+  setStatus(t("status.scanning"), true);
   const entries = await readDirectoryEntries(rootHandle);
   entries.forEach((entry) => renderTreeNode(treeEl, entry, 0, ""));
-  setStatus("就緒");
+  setStatus(t("status.ready"));
 }
 
 function setActiveTree(path) {
@@ -308,7 +308,7 @@ function renderTabs() {
 
     const close = document.createElement("button");
     close.className = "close-tab";
-    close.setAttribute("aria-label", `關閉 ${file.name}`);
+    close.setAttribute("aria-label", t("tab.closeLabel", { name: file.name }));
     close.textContent = "×";
     close.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -350,7 +350,7 @@ async function openFile(fileHandle, path, sourceButton) {
     setActiveFile(path);
     return;
   }
-  setStatus(`讀取檔案：${path}`, true);
+  setStatus(t("status.readingFile", { path }), true);
   const file = await fileHandle.getFile();
   const content = await file.text();
   openFiles.set(path, { name: file.name, handle: fileHandle, content });
@@ -359,7 +359,7 @@ async function openFile(fileHandle, path, sourceButton) {
     sourceButton.classList.add("active");
   }
   setActiveFile(path);
-  setStatus(`已開啟：${path}`);
+  setStatus(t("status.opened", { path }));
 }
 
 function resolvePath(path) {
@@ -401,7 +401,7 @@ async function navigateToInternalLink(href) {
   if (fileHandle) {
     await openFile(fileHandle, resolvedPath, null);
   } else {
-    alert(`找不到文件：${resolvedPath}`);
+    alert(t("alert.fileNotFound", { path: resolvedPath }));
   }
 }
 
@@ -472,7 +472,7 @@ function renderPreview() {
 
 openFolderButton.addEventListener("click", async () => {
   if (!window.showDirectoryPicker) {
-    setStatus("此瀏覽器不支援 File System Access API");
+    setStatus(t("status.unsupported"));
     return;
   }
   try {
@@ -483,7 +483,7 @@ openFolderButton.addEventListener("click", async () => {
     setPreviewVisible(false);
     await renderTree();
   } catch (error) {
-    setStatus("已取消選擇資料夾");
+    setStatus(t("status.cancelled"));
   }
 });
 
@@ -511,7 +511,7 @@ function setSidebarCollapsed(collapsed) {
   }
   if (sidebarToggle) {
     sidebarToggle.setAttribute("aria-pressed", collapsed ? "true" : "false");
-    sidebarToggle.setAttribute("aria-label", collapsed ? "展開側邊欄" : "收合側邊欄");
+    sidebarToggle.setAttribute("aria-label", collapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
     sidebarToggle.innerHTML = collapsed ? ICON_PANEL_OPEN : ICON_PANEL_CLOSE;
   }
 }
