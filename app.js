@@ -8,6 +8,7 @@ const tabsEl = document.getElementById("tabs");
 const previewEl = document.getElementById("preview");
 const emptyEl = document.getElementById("empty");
 const statusText = document.getElementById("status-text");
+const closeAllTabsBtn = document.getElementById("close-all-tabs");
 const appEl = document.querySelector(".app");
 const sidebarEl = document.querySelector(".sidebar");
 const resizerEl = document.querySelector(".sidebar-resizer");
@@ -98,6 +99,11 @@ function applyLocale(lang) {
   if (!rootHandle) {
     statusText.textContent = t("status.waiting");
   }
+
+  if (closeAllTabsBtn && openOrder.length >= 2) {
+    closeAllTabsBtn.textContent = t("tab.closeAll");
+    closeAllTabsBtn.setAttribute("aria-label", t("aria.closeAllTabs"));
+  }
 }
 
 async function setLang(lang) {
@@ -182,6 +188,37 @@ function initMermaid() {
 function setStatus(text, loading = false) {
   statusText.textContent = text;
   statusText.classList.toggle("loading", loading);
+}
+
+function showToast(message) {
+  const existing = document.getElementById("toast");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "toast";
+  toast.className = "toast";
+  toast.setAttribute("role", "alert");
+  toast.setAttribute("aria-live", "assertive");
+
+  const icon = document.createElement("span");
+  icon.className = "toast-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "⚠";
+
+  const msg = document.createElement("span");
+  msg.className = "toast-message";
+  msg.textContent = message;
+
+  const close = document.createElement("button");
+  close.className = "toast-close";
+  close.setAttribute("aria-label", "關閉");
+  close.textContent = "×";
+  close.addEventListener("click", () => toast.remove());
+
+  toast.append(icon, msg, close);
+  document.body.appendChild(toast);
+
+  setTimeout(() => toast.remove(), 5000);
 }
 
 function setPreviewVisible(isVisible) {
@@ -290,6 +327,15 @@ function setActiveTree(path) {
 
 function renderTabs() {
   tabsEl.innerHTML = "";
+  if (closeAllTabsBtn) {
+    if (openOrder.length >= 2) {
+      closeAllTabsBtn.removeAttribute("hidden");
+      closeAllTabsBtn.textContent = t("tab.closeAll");
+      closeAllTabsBtn.setAttribute("aria-label", t("aria.closeAllTabs"));
+    } else {
+      closeAllTabsBtn.setAttribute("hidden", "");
+    }
+  }
   openOrder.forEach((path) => {
     const file = openFiles.get(path);
     if (!file) {
@@ -331,6 +377,16 @@ function closeFile(path) {
   }
   renderTabs();
   renderPreview();
+}
+
+function closeAllFiles() {
+  openFiles.clear();
+  openOrder.length = 0;
+  scrollPositions.clear();
+  activePath = null;
+  renderTabs();
+  renderPreview();
+  setStatus(t("status.ready"));
 }
 
 function setActiveFile(path) {
@@ -388,17 +444,39 @@ async function findFileHandle(path) {
 
 async function navigateToInternalLink(href) {
   if (!rootHandle) return;
+
+  // Strip fragment identifier (#section) — the filename itself has no "#"
+  const pathPart = href.split("#")[0];
+  if (!pathPart) return; // pure anchor link, no file navigation needed
+
   const baseDir =
     activePath && activePath.includes("/")
       ? activePath.substring(0, activePath.lastIndexOf("/") + 1)
       : "";
-  const resolvedPath = resolvePath(baseDir + href);
-  const fileHandle = await findFileHandle(resolvedPath);
+
+  // Primary: resolve relative to current file (standard markdown behaviour)
+  const relativePath = resolvePath(baseDir + pathPart);
+  let fileHandle = await findFileHandle(relativePath);
   if (fileHandle) {
-    await openFile(fileHandle, resolvedPath, null);
-  } else {
-    alert(t("alert.fileNotFound", { path: resolvedPath }));
+    await openFile(fileHandle, relativePath, null);
+    return;
   }
+
+  // Fallback: treat as root-relative path (matches sidebar display)
+  // Handles the common case where users write paths that look like the
+  // sidebar tree, e.g. [text](docs/guide.md) while inside docs/index.md
+  if (baseDir) {
+    const rootPath = resolvePath(pathPart);
+    if (rootPath !== relativePath) {
+      fileHandle = await findFileHandle(rootPath);
+      if (fileHandle) {
+        await openFile(fileHandle, rootPath, null);
+        return;
+      }
+    }
+  }
+
+  showToast(t("alert.fileNotFound", { path: relativePath }));
 }
 
 function renderPreview() {
@@ -469,6 +547,7 @@ function renderPreview() {
 openFolderButton.addEventListener("click", async () => {
   if (!window.showDirectoryPicker) {
     setStatus(t("status.unsupported"));
+    showToast(t("status.unsupported"));
     return;
   }
   try {
@@ -551,6 +630,10 @@ if (langToggle) {
     const nextLang = currentLang === "zh-TW" ? "en" : "zh-TW";
     setLang(nextLang);
   });
+}
+
+if (closeAllTabsBtn) {
+  closeAllTabsBtn.addEventListener("click", closeAllFiles);
 }
 
 async function init() {
