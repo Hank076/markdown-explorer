@@ -24,6 +24,8 @@
   "aria.themeToLight": "Switch to light mode",
   "aria.themeToDark": "Switch to dark mode",
   "tab.closeLabel": "Close {name}",
+  "tab.closeAll": "Close all",
+  "aria.closeAllTabs": "Close all tabs",
   "alert.fileNotFound": "File not found: {path}",
   "lang.current": "EN",
   "lang.switchLabel": "切換為中文"
