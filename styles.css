@@ -420,6 +420,10 @@ body {
   outline-offset: 2px;
 }
 
+.close-all-tabs-btn:active {
+  background: color-mix(in srgb, var(--color-text-secondary) 14%, transparent);
+}
+
 .theme-toggle-btn {
   flex-shrink: 0;
   width: 36px;

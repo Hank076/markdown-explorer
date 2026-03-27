@@ -100,7 +100,7 @@ function applyLocale(lang) {
     statusText.textContent = t("status.waiting");
   }
 
-  if (closeAllTabsBtn && openOrder.length >= 2) {
+  if (closeAllTabsBtn) {
     closeAllTabsBtn.textContent = t("tab.closeAll");
     closeAllTabsBtn.setAttribute("aria-label", t("aria.closeAllTabs"));
   }
