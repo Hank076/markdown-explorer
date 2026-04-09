@@ -152,6 +152,7 @@ marked.use({
 const mermaidApi = window.mermaid;
 const prismApi = window.Prism;
 const themeStorageKey = "markdown-explorer-theme";
+const sidebarWidthStorageKey = "markdown-explorer-sidebar-width";
 
 const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
@@ -197,7 +198,13 @@ function showToast(message) {
   const msg = document.createElement("span");
   msg.className = "toast-message";
   msg.textContent = message;
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "toast-close";
+  closeBtn.setAttribute("aria-label", t("aria.toastClose") || "關閉通知");
+  closeBtn.textContent = "×";
+  closeBtn.addEventListener("click", () => toast.remove());
   toast.appendChild(msg);
+  toast.appendChild(closeBtn);
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 5000);
 }
@@ -526,7 +533,7 @@ if (themeToggle) {
   });
 }
 
-let savedSidebarWidth = 320;
+let savedSidebarWidth = parseInt(localStorage.getItem(sidebarWidthStorageKey), 10) || 320;
 function setSidebarCollapsed(collapsed) {
   appEl.classList.toggle("sidebar-collapsed", collapsed);
   if (collapsed) {
@@ -554,6 +561,7 @@ if (resizerEl) {
     const onMouseUp = () => {
       resizerEl.classList.remove("dragging");
       savedSidebarWidth = parseInt(appEl.style.getPropertyValue("--sidebar-width"), 10) || savedSidebarWidth;
+      localStorage.setItem(sidebarWidthStorageKey, savedSidebarWidth);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       document.removeEventListener("mousemove", onMouseMove);
@@ -574,6 +582,7 @@ async function init() {
   applyLocale(currentLang);
   applyTheme(getPreferredTheme());
   initMermaid();
+  appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   setSidebarCollapsed(false);
   setPreviewVisible(false);
 }

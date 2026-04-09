@@ -28,6 +28,7 @@
   "tab.closeLabel": "Close {name}",
   "tab.closeAll": "Close all",
   "aria.closeAllTabs": "Close all tabs",
+  "aria.toastClose": "Dismiss notification",
   "alert.fileNotFound": "File not found: {path}",
   "toc.title": "Table of Contents",
   "lang.current": "EN",

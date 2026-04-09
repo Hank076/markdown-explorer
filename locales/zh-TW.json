@@ -28,6 +28,7 @@
   "tab.closeLabel": "關閉 {name}",
   "tab.closeAll": "關閉全部",
   "aria.closeAllTabs": "關閉所有分頁",
+  "aria.toastClose": "關閉通知",
   "alert.fileNotFound": "找不到文件：{path}",
   "toc.title": "目錄",
   "lang.current": "中",
