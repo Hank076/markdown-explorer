@@ -7,7 +7,9 @@ const DB_STORE = "history";
 const HISTORY_MAX_FOLDERS = 5;
 const HISTORY_MAX_FILES = 10;
 
+let _dbConnection = null;
 function initDB() {
+  if (_dbConnection) return Promise.resolve(_dbConnection);
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = (e) => {
@@ -16,7 +18,7 @@ function initDB() {
         db.createObjectStore(DB_STORE, { keyPath: "folderName" });
       }
     };
-    req.onsuccess = (e) => resolve(e.target.result);
+    req.onsuccess = (e) => { _dbConnection = e.target.result; resolve(_dbConnection); };
     req.onerror = () => reject(req.error);
   });
 }
@@ -106,6 +108,7 @@ const treeEl = document.getElementById("tree");
 const tabsEl = document.getElementById("tabs");
 const previewEl = document.getElementById("preview");
 const tocEl = document.getElementById("toc");
+const tocContentEl = tocEl?.querySelector(".toc-content");
 const tocListContainer = document.getElementById("toc-list-container");
 const tocToggleBtn = document.getElementById("toc-toggle");
 const viewerContainer = document.getElementById("viewer-container");
@@ -238,6 +241,9 @@ async function setLang(lang) {
 
 let rootHandle = null;
 let activePath = null;
+let cachedHeadings = [];
+let tocRAFPending = false;
+let activeTreeNode = null;
 const handleMap = new Map();
 const openFiles = new Map();
 const openOrder = [];
@@ -461,6 +467,7 @@ async function renderSidebarRecentPanel() {
 function generateTOC() {
   if (!tocEl || !tocListContainer) return;
   const headings = Array.from(previewEl.querySelectorAll("h1, h2, h3, h4"));
+  cachedHeadings = headings;
   tocListContainer.innerHTML = "";
 
   if (headings.length === 0) {
@@ -511,17 +518,27 @@ if (tocToggleBtn) {
 
 function updateTOCActive() {
   if (!tocEl || tocEl.classList.contains("collapsed") || tocEl.style.display === "none") return;
-  const headings = Array.from(previewEl.querySelectorAll("h1, h2, h3, h4"));
-  const scrollPos = viewerEl.scrollTop + 64;
-  let activeId = null;
-  for (const heading of headings) {
-    if (heading.offsetTop <= scrollPos) activeId = heading.id;
-    else break;
-  }
-  tocEl.querySelectorAll(".toc-link").forEach((link) => {
-    const isActive = link.getAttribute("href") === `#${activeId}`;
-    link.classList.toggle("active", isActive);
-    if (isActive) link.scrollIntoView({ behavior: "auto", block: "nearest" });
+  if (tocRAFPending) return;
+  tocRAFPending = true;
+  requestAnimationFrame(() => {
+    tocRAFPending = false;
+    const scrollPos = viewerEl.scrollTop + 64;
+    let activeId = null;
+    for (const heading of cachedHeadings) {
+      if (heading.offsetTop <= scrollPos) activeId = heading.id;
+      else break;
+    }
+    tocEl.querySelectorAll(".toc-link").forEach((link) => {
+      const isActive = link.getAttribute("href") === `#${activeId}`;
+      link.classList.toggle("active", isActive);
+      if (isActive && tocContentEl) {
+        const linkRect = link.getBoundingClientRect();
+        const containerRect = tocContentEl.getBoundingClientRect();
+        if (linkRect.top < containerRect.top || linkRect.bottom > containerRect.bottom) {
+          tocContentEl.scrollTop += linkRect.top - containerRect.top - containerRect.height / 2 + linkRect.height / 2;
+        }
+      }
+    });
   });
 }
 
@@ -605,9 +622,10 @@ async function renderTree() {
 }
 
 function setActiveTree(path) {
-  treeEl.querySelectorAll(".node").forEach((node) => {
-    node.classList.toggle("active", node.dataset.path === path);
-  });
+  if (activeTreeNode) activeTreeNode.classList.remove("active");
+  const next = treeEl.querySelector(`.node[data-path="${CSS.escape(path)}"]`);
+  if (next) next.classList.add("active");
+  activeTreeNode = next;
 }
 
 function renderTabs() {
@@ -619,6 +637,7 @@ function renderTabs() {
       closeAllTabsBtn.setAttribute("aria-label", t("aria.closeAllTabs"));
     } else closeAllTabsBtn.setAttribute("hidden", "");
   }
+  const fragment = document.createDocumentFragment();
   openOrder.forEach((path) => {
     const file = openFiles.get(path);
     if (!file) return;
@@ -635,8 +654,9 @@ function renderTabs() {
     close.addEventListener("click", (event) => { event.stopPropagation(); closeFile(path); });
     tab.appendChild(close);
     if (path === activePath) tab.classList.add("active");
-    tabsEl.appendChild(tab);
+    fragment.appendChild(tab);
   });
+  tabsEl.appendChild(fragment);
 }
 
 function closeFile(path) {
@@ -654,6 +674,7 @@ function closeAllFiles() {
   openOrder.length = 0;
   scrollPositions.clear();
   activePath = null;
+  activeTreeNode = null;
   renderTabs();
   renderPreview();
   setStatus(t("status.ready"));
@@ -672,7 +693,7 @@ async function openFile(fileHandle, path, sourceButton) {
   setStatus(t("status.readingFile", { path }), true);
   const file = await fileHandle.getFile();
   const content = await file.text();
-  openFiles.set(path, { name: file.name, handle: fileHandle, content });
+  openFiles.set(path, { name: file.name, handle: fileHandle, content, renderedHtml: null });
   openOrder.push(path);
   if (sourceButton) sourceButton.classList.add("active");
   setActiveFile(path);
@@ -725,8 +746,10 @@ function renderPreview() {
   if (!activePath) { setPreviewVisible(false); return; }
   const file = openFiles.get(activePath);
   if (!file) { setPreviewVisible(false); return; }
-  const html = marked.parse(file.content);
-  previewEl.innerHTML = html;
+  if (!file.renderedHtml) {
+    file.renderedHtml = marked.parse(file.content);
+  }
+  previewEl.innerHTML = file.renderedHtml;
   const codeBlocks = previewEl.querySelectorAll("pre code");
   codeBlocks.forEach((block) => {
     const language = block.className.match(/language-([\w-]+)/)?.[1];
@@ -738,7 +761,11 @@ function renderPreview() {
       if (pre) pre.replaceWith(container);
     }
   });
-  if (prismApi) prismApi.highlightAllUnder(previewEl);
+  if (prismApi) {
+    const doHighlight = () => prismApi.highlightAllUnder(previewEl);
+    if ('requestIdleCallback' in window) requestIdleCallback(doHighlight);
+    else setTimeout(doHighlight, 0);
+  }
   const mermaidNodes = previewEl.querySelectorAll(".mermaid");
   if (mermaidNodes.length > 0 && mermaidApi) {
     mermaidApi.run({ nodes: mermaidNodes }).catch(() => {
