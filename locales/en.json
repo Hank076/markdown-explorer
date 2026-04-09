@@ -1,7 +1,7 @@
 {
   "btn.openFolder": "Open Folder",
   "sidebar.hint": "Chrome/Edge only, folder access permission required",
-  "sidebar.copyright": "© Hank. All rights reserved.",
+  "sidebar.copyright": "MIT © 2026 Hank",
   "empty.title": "Open a Folder",
   "empty.desc": "A file tree appears on the left. Click any .md file to open it.",
   "empty.feature1": "Multi-tab support",
