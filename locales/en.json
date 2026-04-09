@@ -21,12 +21,15 @@
   "aria.preview": "Markdown Preview",
   "aria.sidebarCollapse": "Collapse sidebar",
   "aria.sidebarExpand": "Expand sidebar",
+  "aria.tocCollapse": "Collapse TOC",
+  "aria.tocExpand": "Expand TOC",
   "aria.themeToLight": "Switch to light mode",
   "aria.themeToDark": "Switch to dark mode",
   "tab.closeLabel": "Close {name}",
   "tab.closeAll": "Close all",
   "aria.closeAllTabs": "Close all tabs",
   "alert.fileNotFound": "File not found: {path}",
+  "toc.title": "Table of Contents",
   "lang.current": "EN",
   "lang.switchLabel": "切換為中文"
 }

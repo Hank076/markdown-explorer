@@ -56,7 +56,17 @@
               </ul>
             </div>
           </div>
-          <article id="preview" class="preview" aria-label="Markdown 預覽"></article>
+          <div id="viewer-container" class="viewer-container" hidden>
+            <article id="preview" class="preview" aria-label="Markdown 預覽"></article>
+            <aside id="toc" class="toc" aria-label="目錄">
+              <button id="toc-toggle" class="toc-toggle-btn" type="button" aria-label="切換目錄"></button>
+              <span id="toc-collapsed-label" class="toc-collapsed-label" aria-hidden="true">目錄</span>
+              <div class="toc-content">
+                <div class="toc-title">目錄</div>
+                <div id="toc-list-container"></div>
+              </div>
+            </aside>
+          </div>
         </section>
       </main>
     </div>

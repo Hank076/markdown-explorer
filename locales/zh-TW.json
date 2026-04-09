@@ -21,12 +21,15 @@
   "aria.preview": "Markdown 預覽",
   "aria.sidebarCollapse": "收合側邊欄",
   "aria.sidebarExpand": "展開側邊欄",
+  "aria.tocCollapse": "收合目錄",
+  "aria.tocExpand": "展開目錄",
   "aria.themeToLight": "切換為亮色模式",
   "aria.themeToDark": "切換為暗色模式",
   "tab.closeLabel": "關閉 {name}",
   "tab.closeAll": "關閉全部",
   "aria.closeAllTabs": "關閉所有分頁",
   "alert.fileNotFound": "找不到文件：{path}",
+  "toc.title": "目錄",
   "lang.current": "中",
   "lang.switchLabel": "Switch to English"
 }

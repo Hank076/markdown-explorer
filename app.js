@@ -6,6 +6,10 @@ const sidebarToggle = document.getElementById("sidebar-toggle");
 const treeEl = document.getElementById("tree");
 const tabsEl = document.getElementById("tabs");
 const previewEl = document.getElementById("preview");
+const tocEl = document.getElementById("toc");
+const tocListContainer = document.getElementById("toc-list-container");
+const tocToggleBtn = document.getElementById("toc-toggle");
+const viewerContainer = document.getElementById("viewer-container");
 const emptyEl = document.getElementById("empty");
 const statusText = document.getElementById("status-text");
 const closeAllTabsBtn = document.getElementById("close-all-tabs");
@@ -18,7 +22,6 @@ const rootEl = document.documentElement;
 const langToggle = document.getElementById("lang-toggle");
 
 const langStorageKey = "markdown-explorer-lang";
-// BCP 47 tag map: locale key → precise html lang attribute value
 const langTagMap = { "zh-TW": "zh-Hant-TW", en: "en" };
 let currentLang = localStorage.getItem(langStorageKey) || "zh-TW";
 let translations = {};
@@ -30,14 +33,11 @@ async function loadLocale(lang) {
     translations = await res.json();
   } catch (err) {
     console.warn(`[i18n] Failed to load locale "${lang}":`, err);
-    // If translations is still empty (first load, fetch failed), attempt zh-TW fallback
     if (Object.keys(translations).length === 0 && lang !== "zh-TW") {
       try {
         const fallback = await fetch("locales/zh-TW.json");
         if (fallback.ok) translations = await fallback.json();
-      } catch {
-        // Last resort: translations stays empty; t() returns raw keys
-      }
+      } catch { }
     }
   }
 }
@@ -49,6 +49,9 @@ function t(key, vars = {}) {
   }
   return str;
 }
+
+const ICON_TOC_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>`;
+const ICON_TOC_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`;
 
 function applyLocale(lang) {
   document.documentElement.lang = langTagMap[lang] || lang;
@@ -80,14 +83,23 @@ function applyLocale(lang) {
   if (sidebarEl) sidebarEl.setAttribute("aria-label", t("aria.sidebar"));
   if (tabsEl) tabsEl.setAttribute("aria-label", t("aria.tabs"));
   if (previewEl) previewEl.setAttribute("aria-label", t("aria.preview"));
+  if (tocEl) tocEl.setAttribute("aria-label", t("toc.title"));
 
-  // Update theme toggle aria-label based on current theme
+  const tocTitleEl = tocEl?.querySelector(".toc-title");
+  if (tocTitleEl) tocTitleEl.textContent = t("toc.title");
+
+  const tocCollapsedLabel = document.getElementById("toc-collapsed-label");
+  if (tocCollapsedLabel) tocCollapsedLabel.textContent = t("toc.title");
+
+  if (tocToggleBtn) {
+    const isCollapsed = tocEl.classList.contains("collapsed");
+    tocToggleBtn.setAttribute("aria-label", isCollapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
+    tocToggleBtn.innerHTML = isCollapsed ? ICON_TOC_OPEN : ICON_TOC_CLOSE;
+  }
+
   const currentTheme = rootEl.getAttribute("data-theme");
   if (themeToggle && currentTheme) {
-    themeToggle.setAttribute(
-      "aria-label",
-      currentTheme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark")
-    );
+    themeToggle.setAttribute("aria-label", currentTheme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark"));
   }
 
   if (langToggle) {
@@ -96,10 +108,7 @@ function applyLocale(lang) {
     langToggle.setAttribute("aria-pressed", lang === "en" ? "true" : "false");
   }
 
-  if (!rootHandle) {
-    statusText.textContent = t("status.waiting");
-  }
-
+  if (!rootHandle) statusText.textContent = t("status.waiting");
   if (closeAllTabsBtn) {
     closeAllTabsBtn.textContent = t("tab.closeAll");
     closeAllTabsBtn.setAttribute("aria-label", t("aria.closeAllTabs"));
@@ -111,14 +120,11 @@ async function setLang(lang) {
   localStorage.setItem(langStorageKey, lang);
   await loadLocale(lang);
   applyLocale(lang);
-  // Re-render icon and aria-pressed state on theme toggle; aria-label already set by applyLocale
   applyTheme(rootEl.getAttribute("data-theme") || getPreferredTheme());
-  // Update sidebar toggle aria-label only — avoid calling setSidebarCollapsed() which resets --sidebar-width
   if (sidebarToggle) {
     const isCollapsed = appEl.classList.contains("sidebar-collapsed");
     sidebarToggle.setAttribute("aria-label", isCollapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
   }
-  // Refresh already-open tab close-button aria-labels
   renderTabs();
 }
 
@@ -132,9 +138,7 @@ let idSeed = 0;
 
 marked.use({
   renderer: {
-    html() {
-      return "";
-    },
+    html() { return ""; },
     link({ href, title, text }) {
       const safeTitle = title ? ` title="${title}"` : "";
       if (href && !/^(https?:\/\/|\/\/|mailto:|#)/.test(href)) {
@@ -156,9 +160,7 @@ const ICON_PANEL_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" heig
 
 function getPreferredTheme() {
   const stored = localStorage.getItem(themeStorageKey);
-  if (stored === "light" || stored === "dark") {
-    return stored;
-  }
+  if (stored === "light" || stored === "dark") return stored;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
@@ -171,17 +173,11 @@ function applyTheme(theme) {
   }
 }
 
-function getMermaidTheme() {
-  return rootEl.getAttribute("data-theme") === "dark" ? "dark" : "neutral";
-}
+function getMermaidTheme() { return rootEl.getAttribute("data-theme") === "dark" ? "dark" : "neutral"; }
 
 function initMermaid() {
   if (mermaidApi) {
-    mermaidApi.initialize({
-      startOnLoad: false,
-      theme: getMermaidTheme(),
-      securityLevel: "strict",
-    });
+    mermaidApi.initialize({ startOnLoad: false, theme: getMermaidTheme(), securityLevel: "strict" });
   }
 }
 
@@ -193,60 +189,103 @@ function setStatus(text, loading = false) {
 function showToast(message) {
   const existing = document.getElementById("toast");
   if (existing) existing.remove();
-
   const toast = document.createElement("div");
   toast.id = "toast";
   toast.className = "toast";
   toast.setAttribute("role", "alert");
   toast.setAttribute("aria-live", "assertive");
-
-  const icon = document.createElement("span");
-  icon.className = "toast-icon";
-  icon.setAttribute("aria-hidden", "true");
-  icon.textContent = "⚠";
-
   const msg = document.createElement("span");
   msg.className = "toast-message";
   msg.textContent = message;
-
-  const close = document.createElement("button");
-  close.className = "toast-close";
-  close.setAttribute("aria-label", "關閉");
-  close.textContent = "×";
-  close.addEventListener("click", () => toast.remove());
-
-  toast.append(icon, msg, close);
+  toast.appendChild(msg);
   document.body.appendChild(toast);
-
   setTimeout(() => toast.remove(), 5000);
 }
 
 function setPreviewVisible(isVisible) {
-  previewEl.style.display = isVisible ? "block" : "none";
+  viewerContainer.hidden = !isVisible;
   emptyEl.style.display = isVisible ? "none" : "flex";
 }
 
-function makeId() {
-  idSeed += 1;
-  return `node-${idSeed}`;
+function generateTOC() {
+  if (!tocEl || !tocListContainer) return;
+  const headings = Array.from(previewEl.querySelectorAll("h1, h2, h3, h4"));
+  tocListContainer.innerHTML = "";
+
+  if (headings.length === 0) {
+    tocEl.style.display = "none";
+    return;
+  }
+  tocEl.style.display = "flex";
+
+  const list = document.createElement("ul");
+  list.className = "toc-list";
+
+  headings.forEach((heading, index) => {
+    const id = heading.id || `heading-${index}`;
+    heading.id = id;
+    const level = parseInt(heading.tagName[1]);
+    const item = document.createElement("li");
+    item.className = "toc-item";
+    item.dataset.level = level;
+    const link = document.createElement("a");
+    link.className = "toc-link";
+    link.href = `#${id}`;
+    link.textContent = heading.textContent;
+    link.title = heading.textContent;
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      heading.scrollIntoView({ behavior: "smooth" });
+    });
+    item.appendChild(link);
+    list.appendChild(item);
+  });
+  tocListContainer.appendChild(list);
+  updateTOCActive();
 }
+
+function setTOCCollapsed(collapsed) {
+  if (!tocEl) return;
+  tocEl.classList.toggle("collapsed", collapsed);
+  if (tocToggleBtn) {
+    tocToggleBtn.setAttribute("aria-pressed", collapsed ? "true" : "false");
+    tocToggleBtn.setAttribute("aria-label", collapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
+    tocToggleBtn.innerHTML = collapsed ? ICON_TOC_OPEN : ICON_TOC_CLOSE;
+  }
+}
+
+if (tocToggleBtn) {
+  tocToggleBtn.addEventListener("click", () => setTOCCollapsed(!tocEl.classList.contains("collapsed")));
+}
+
+function updateTOCActive() {
+  if (!tocEl || tocEl.classList.contains("collapsed") || tocEl.style.display === "none") return;
+  const headings = Array.from(previewEl.querySelectorAll("h1, h2, h3, h4"));
+  const scrollPos = viewerEl.scrollTop + 64;
+  let activeId = null;
+  for (const heading of headings) {
+    if (heading.offsetTop <= scrollPos) activeId = heading.id;
+    else break;
+  }
+  tocEl.querySelectorAll(".toc-link").forEach((link) => {
+    const isActive = link.getAttribute("href") === `#${activeId}`;
+    link.classList.toggle("active", isActive);
+    if (isActive) link.scrollIntoView({ behavior: "auto", block: "nearest" });
+  });
+}
+
+function makeId() { idSeed += 1; return `node-${idSeed}`; }
 
 async function readDirectoryEntries(dirHandle) {
   const entries = [];
   for await (const [name, handle] of dirHandle.entries()) {
-    if (handle.kind === "file" && !name.toLowerCase().endsWith(".md")) {
-      continue;
-    }
+    if (handle.kind === "file" && !name.toLowerCase().endsWith(".md")) continue;
     entries.push({ name, handle, kind: handle.kind });
   }
-
   entries.sort((a, b) => {
-    if (a.kind !== b.kind) {
-      return a.kind === "directory" ? -1 : 1;
-    }
+    if (a.kind !== b.kind) return a.kind === "directory" ? -1 : 1;
     return a.name.localeCompare(b.name, "zh-Hant");
   });
-
   return entries;
 }
 
@@ -286,16 +325,13 @@ function renderTreeNode(parentEl, entry, depth, parentPath) {
       button.dataset.expanded = "true";
       children.hidden = false;
       button.querySelector(".icon").textContent = "📂";
-      if (button.dataset.loaded === "true") {
-        return;
-      }
+      if (button.dataset.loaded === "true") return;
       button.dataset.loaded = "true";
       setStatus(t("status.readingFolder", { path: currentPath }), true);
       const childEntries = await readDirectoryEntries(entry.handle);
       childEntries.forEach((child) => renderTreeNode(children, child, depth + 1, `${currentPath}/`));
       setStatus(t("status.readyPath", { path: currentPath }));
     });
-
     wrapper.append(button, children);
     parentEl.appendChild(wrapper);
   } else {
@@ -310,9 +346,7 @@ function renderTreeNode(parentEl, entry, depth, parentPath) {
 
 async function renderTree() {
   treeEl.innerHTML = "";
-  if (!rootHandle) {
-    return;
-  }
+  if (!rootHandle) return;
   setStatus(t("status.scanning"), true);
   const entries = await readDirectoryEntries(rootHandle);
   entries.forEach((entry) => renderTreeNode(treeEl, entry, 0, ""));
@@ -332,35 +366,24 @@ function renderTabs() {
       closeAllTabsBtn.removeAttribute("hidden");
       closeAllTabsBtn.textContent = t("tab.closeAll");
       closeAllTabsBtn.setAttribute("aria-label", t("aria.closeAllTabs"));
-    } else {
-      closeAllTabsBtn.setAttribute("hidden", "");
-    }
+    } else closeAllTabsBtn.setAttribute("hidden", "");
   }
   openOrder.forEach((path) => {
     const file = openFiles.get(path);
-    if (!file) {
-      return;
-    }
+    if (!file) return;
     const tab = document.createElement("button");
     tab.className = "tab";
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", path === activePath ? "true" : "false");
     tab.textContent = file.name;
     tab.addEventListener("click", () => setActiveFile(path));
-
     const close = document.createElement("button");
     close.className = "close-tab";
     close.setAttribute("aria-label", t("tab.closeLabel", { name: file.name }));
     close.textContent = "×";
-    close.addEventListener("click", (event) => {
-      event.stopPropagation();
-      closeFile(path);
-    });
-
+    close.addEventListener("click", (event) => { event.stopPropagation(); closeFile(path); });
     tab.appendChild(close);
-    if (path === activePath) {
-      tab.classList.add("active");
-    }
+    if (path === activePath) tab.classList.add("active");
     tabsEl.appendChild(tab);
   });
 }
@@ -369,12 +392,8 @@ function closeFile(path) {
   openFiles.delete(path);
   scrollPositions.delete(path);
   const index = openOrder.indexOf(path);
-  if (index >= 0) {
-    openOrder.splice(index, 1);
-  }
-  if (activePath === path) {
-    activePath = openOrder[0] ?? null;
-  }
+  if (index >= 0) openOrder.splice(index, 1);
+  if (activePath === path) activePath = openOrder[0] ?? null;
   renderTabs();
   renderPreview();
 }
@@ -398,18 +417,13 @@ function setActiveFile(path) {
 }
 
 async function openFile(fileHandle, path, sourceButton) {
-  if (openFiles.has(path)) {
-    setActiveFile(path);
-    return;
-  }
+  if (openFiles.has(path)) { setActiveFile(path); return; }
   setStatus(t("status.readingFile", { path }), true);
   const file = await fileHandle.getFile();
   const content = await file.text();
   openFiles.set(path, { name: file.name, handle: fileHandle, content });
   openOrder.push(path);
-  if (sourceButton) {
-    sourceButton.classList.add("active");
-  }
+  if (sourceButton) sourceButton.classList.add("active");
   setActiveFile(path);
   setStatus(t("status.opened", { path }));
 }
@@ -419,11 +433,8 @@ function resolvePath(path) {
   const result = [];
   for (const part of parts) {
     if (part === ".") continue;
-    if (part === "..") {
-      result.pop();
-    } else if (part !== "") {
-      result.push(part);
-    }
+    if (part === "..") result.pop();
+    else if (part !== "") result.push(part);
   }
   return result.join("/");
 }
@@ -433,66 +444,35 @@ async function findFileHandle(path) {
   if (parts.length === 0) return null;
   let dirHandle = rootHandle;
   try {
-    for (let i = 0; i < parts.length - 1; i++) {
-      dirHandle = await dirHandle.getDirectoryHandle(parts[i]);
-    }
+    for (let i = 0; i < parts.length - 1; i++) dirHandle = await dirHandle.getDirectoryHandle(parts[i]);
     return await dirHandle.getFileHandle(parts[parts.length - 1]);
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function navigateToInternalLink(href) {
   if (!rootHandle) return;
-
-  // Strip fragment identifier (#section) — the filename itself has no "#"
   const pathPart = href.split("#")[0];
-  if (!pathPart) return; // pure anchor link, no file navigation needed
-
-  const baseDir =
-    activePath && activePath.includes("/")
-      ? activePath.substring(0, activePath.lastIndexOf("/") + 1)
-      : "";
-
-  // Primary: resolve relative to current file (standard markdown behaviour)
+  if (!pathPart) return;
+  const baseDir = activePath && activePath.includes("/") ? activePath.substring(0, activePath.lastIndexOf("/") + 1) : "";
   const relativePath = resolvePath(baseDir + pathPart);
   let fileHandle = await findFileHandle(relativePath);
-  if (fileHandle) {
-    await openFile(fileHandle, relativePath, null);
-    return;
-  }
-
-  // Fallback: treat as root-relative path (matches sidebar display)
-  // Handles the common case where users write paths that look like the
-  // sidebar tree, e.g. [text](docs/guide.md) while inside docs/index.md
+  if (fileHandle) { await openFile(fileHandle, relativePath, null); return; }
   if (baseDir) {
     const rootPath = resolvePath(pathPart);
     if (rootPath !== relativePath) {
       fileHandle = await findFileHandle(rootPath);
-      if (fileHandle) {
-        await openFile(fileHandle, rootPath, null);
-        return;
-      }
+      if (fileHandle) { await openFile(fileHandle, rootPath, null); return; }
     }
   }
-
   showToast(t("alert.fileNotFound", { path: relativePath }));
 }
 
 function renderPreview() {
-  if (!activePath) {
-    setPreviewVisible(false);
-    return;
-  }
+  if (!activePath) { setPreviewVisible(false); return; }
   const file = openFiles.get(activePath);
-  if (!file) {
-    setPreviewVisible(false);
-    return;
-  }
-
+  if (!file) { setPreviewVisible(false); return; }
   const html = marked.parse(file.content);
   previewEl.innerHTML = html;
-
   const codeBlocks = previewEl.querySelectorAll("pre code");
   codeBlocks.forEach((block) => {
     const language = block.className.match(/language-([\w-]+)/)?.[1];
@@ -501,65 +481,38 @@ function renderPreview() {
       container.className = "mermaid";
       container.textContent = block.textContent;
       const pre = block.closest("pre");
-      if (pre) {
-        pre.replaceWith(container);
-      }
+      if (pre) pre.replaceWith(container);
     }
   });
-
-  if (prismApi) {
-    prismApi.highlightAllUnder(previewEl);
-  }
-
+  if (prismApi) prismApi.highlightAllUnder(previewEl);
   const mermaidNodes = previewEl.querySelectorAll(".mermaid");
   if (mermaidNodes.length > 0 && mermaidApi) {
-    mermaidApi
-      .run({ nodes: mermaidNodes })
-      .catch(() => {
-        mermaidNodes.forEach((node) => {
-          const pre = document.createElement("pre");
-          pre.textContent = node.textContent;
-          node.innerHTML = "";
-          node.appendChild(pre);
-        });
+    mermaidApi.run({ nodes: mermaidNodes }).catch(() => {
+      mermaidNodes.forEach((node) => {
+        const pre = document.createElement("pre");
+        pre.textContent = node.textContent;
+        node.innerHTML = "";
+        node.appendChild(pre);
       });
-  }
-  if (mermaidNodes.length > 0 && !mermaidApi) {
-    mermaidNodes.forEach((node) => {
-      const pre = document.createElement("pre");
-      pre.textContent = node.textContent;
-      node.innerHTML = "";
-      node.appendChild(pre);
     });
   }
-
   previewEl.querySelectorAll("a.internal-link").forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      navigateToInternalLink(link.dataset.href);
-    });
+    link.addEventListener("click", (e) => { e.preventDefault(); navigateToInternalLink(link.dataset.href); });
   });
-
+  generateTOC();
   setPreviewVisible(true);
   viewerEl.scrollTop = scrollPositions.get(activePath) ?? 0;
 }
 
+if (viewerEl) viewerEl.addEventListener("scroll", updateTOCActive, { passive: true });
+
 openFolderButton.addEventListener("click", async () => {
-  if (!window.showDirectoryPicker) {
-    setStatus(t("status.unsupported"));
-    showToast(t("status.unsupported"));
-    return;
-  }
+  if (!window.showDirectoryPicker) { setStatus(t("status.unsupported")); showToast(t("status.unsupported")); return; }
   try {
     rootHandle = await window.showDirectoryPicker();
-    openFiles.clear();
-    openOrder.length = 0;
-    activePath = null;
-    setPreviewVisible(false);
-    await renderTree();
-  } catch (error) {
-    setStatus(t("status.cancelled"));
-  }
+    openFiles.clear(); openOrder.length = 0; activePath = null;
+    setPreviewVisible(false); await renderTree();
+  } catch { setStatus(t("status.cancelled")); }
 });
 
 if (themeToggle) {
@@ -574,41 +527,30 @@ if (themeToggle) {
 }
 
 let savedSidebarWidth = 320;
-
 function setSidebarCollapsed(collapsed) {
   appEl.classList.toggle("sidebar-collapsed", collapsed);
   if (collapsed) {
     const current = parseInt(appEl.style.getPropertyValue("--sidebar-width"), 10);
     if (current > 40) savedSidebarWidth = current;
     appEl.style.setProperty("--sidebar-width", "40px");
-  } else {
-    appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
-  }
+  } else appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   if (sidebarToggle) {
     sidebarToggle.setAttribute("aria-pressed", collapsed ? "true" : "false");
     sidebarToggle.setAttribute("aria-label", collapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
     sidebarToggle.innerHTML = collapsed ? ICON_PANEL_OPEN : ICON_PANEL_CLOSE;
   }
 }
-
-if (sidebarToggle) {
-  sidebarToggle.addEventListener("click", () => {
-    setSidebarCollapsed(!appEl.classList.contains("sidebar-collapsed"));
-  });
-}
+if (sidebarToggle) sidebarToggle.addEventListener("click", () => setSidebarCollapsed(!appEl.classList.contains("sidebar-collapsed")));
 
 if (resizerEl) {
   resizerEl.addEventListener("mousedown", (e) => {
     e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = sidebarEl.getBoundingClientRect().width;
+    const startX = e.clientX, startWidth = sidebarEl.getBoundingClientRect().width;
     resizerEl.classList.add("dragging");
-
-    const onMouseMove = (moveEvent) => {
-      const newWidth = Math.max(160, Math.min(600, startWidth + moveEvent.clientX - startX));
-      appEl.style.setProperty("--sidebar-width", `${newWidth}px`);
+    const onMouseMove = (me) => {
+      const nw = Math.max(160, Math.min(600, startWidth + me.clientX - startX));
+      appEl.style.setProperty("--sidebar-width", `${nw}px`);
     };
-
     const onMouseUp = () => {
       resizerEl.classList.remove("dragging");
       savedSidebarWidth = parseInt(appEl.style.getPropertyValue("--sidebar-width"), 10) || savedSidebarWidth;
@@ -617,7 +559,6 @@ if (resizerEl) {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
-
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMouseMove);
@@ -625,16 +566,8 @@ if (resizerEl) {
   });
 }
 
-if (langToggle) {
-  langToggle.addEventListener("click", () => {
-    const nextLang = currentLang === "zh-TW" ? "en" : "zh-TW";
-    setLang(nextLang);
-  });
-}
-
-if (closeAllTabsBtn) {
-  closeAllTabsBtn.addEventListener("click", closeAllFiles);
-}
+if (langToggle) langToggle.addEventListener("click", () => setLang(currentLang === "zh-TW" ? "en" : "zh-TW"));
+if (closeAllTabsBtn) closeAllTabsBtn.addEventListener("click", closeAllFiles);
 
 async function init() {
   await loadLocale(currentLang);
@@ -644,5 +577,4 @@ async function init() {
   setSidebarCollapsed(false);
   setPreviewVisible(false);
 }
-
 init();
