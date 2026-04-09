@@ -1,5 +1,104 @@
 import { marked } from "./libs/marked/marked.esm.js";
 
+// ── IndexedDB History Helpers ──────────────────────────────────────────────
+
+const DB_NAME = "markdown-explorer-db";
+const DB_STORE = "history";
+const HISTORY_MAX_FOLDERS = 5;
+const HISTORY_MAX_FILES = 10;
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE, { keyPath: "folderName" });
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveHistory(folderName, handle, recentFiles = []) {
+  try {
+    const db = await initDB();
+    const tx = db.transaction(DB_STORE, "readwrite");
+    const store = tx.objectStore(DB_STORE);
+    const existing = await new Promise((res) => {
+      const r = store.get(folderName);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res(null);
+    });
+    const merged = existing ? existing.recentFiles : [];
+    for (const f of recentFiles) {
+      const idx = merged.findIndex((x) => x.path === f.path);
+      if (idx >= 0) merged.splice(idx, 1);
+      merged.unshift(f);
+    }
+    const record = {
+      folderName,
+      handle,
+      recentFiles: merged.slice(0, HISTORY_MAX_FILES),
+      lastOpened: Date.now(),
+    };
+    store.put(record);
+    await new Promise((res, rej) => {
+      tx.oncomplete = res;
+      tx.onerror = () => rej(tx.error);
+    });
+    // Trim to max folders
+    await trimHistory();
+    renderSidebarRecentPanel();
+  } catch (err) {
+    console.warn("[history] saveHistory failed:", err);
+  }
+}
+
+async function trimHistory() {
+  try {
+    const db = await initDB();
+    const tx = db.transaction(DB_STORE, "readwrite");
+    const store = tx.objectStore(DB_STORE);
+    const all = await new Promise((res) => {
+      const r = store.getAll();
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res([]);
+    });
+    if (all.length <= HISTORY_MAX_FOLDERS) return;
+    all.sort((a, b) => b.lastOpened - a.lastOpened);
+    const toDelete = all.slice(HISTORY_MAX_FOLDERS);
+    for (const item of toDelete) store.delete(item.folderName);
+    await new Promise((res, rej) => {
+      tx.oncomplete = res;
+      tx.onerror = () => rej(tx.error);
+    });
+  } catch (err) {
+    console.warn("[history] trimHistory failed:", err);
+  }
+}
+
+async function loadHistory() {
+  try {
+    const db = await initDB();
+    const tx = db.transaction(DB_STORE, "readonly");
+    const store = tx.objectStore(DB_STORE);
+    const all = await new Promise((res) => {
+      const r = store.getAll();
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res([]);
+    });
+    all.sort((a, b) => b.lastOpened - a.lastOpened);
+    return all.slice(0, HISTORY_MAX_FOLDERS);
+  } catch (err) {
+    console.warn("[history] loadHistory failed:", err);
+    return [];
+  }
+}
+
+// ── End IndexedDB History Helpers ──────────────────────────────────────────
+
 const openFolderButton = document.getElementById("open-folder");
 const themeToggle = document.getElementById("theme-toggle");
 const sidebarToggle = document.getElementById("sidebar-toggle");
@@ -20,6 +119,9 @@ const viewerEl = document.querySelector(".viewer");
 const rootEl = document.documentElement;
 
 const langToggle = document.getElementById("lang-toggle");
+const recentPanelEl = document.getElementById("recent-panel");
+const recentPanelToggleBtn = document.getElementById("recent-panel-toggle");
+const recentPanelBodyEl = document.getElementById("recent-panel-body");
 
 const langStorageKey = "markdown-explorer-lang";
 const langTagMap = { "zh-TW": "zh-Hant-TW", en: "en" };
@@ -113,6 +215,12 @@ function applyLocale(lang) {
     closeAllTabsBtn.textContent = t("tab.closeAll");
     closeAllTabsBtn.setAttribute("aria-label", t("aria.closeAllTabs"));
   }
+
+  const recentTitleEl = emptyEl?.querySelector(".recent-title");
+  if (recentTitleEl) recentTitleEl.textContent = t("recent.title");
+
+  const recentPanelLabelEl = document.getElementById("recent-panel-label");
+  if (recentPanelLabelEl) recentPanelLabelEl.textContent = t("sidebar.recentPanel");
 }
 
 async function setLang(lang) {
@@ -212,6 +320,142 @@ function showToast(message) {
 function setPreviewVisible(isVisible) {
   viewerContainer.hidden = !isVisible;
   emptyEl.style.display = isVisible ? "none" : "flex";
+  if (!isVisible) renderRecentHistory();
+}
+
+async function restoreFolder(record) {
+  try {
+    const permission = await record.handle.queryPermission({ mode: "read" });
+    if (permission !== "granted") {
+      const result = await record.handle.requestPermission({ mode: "read" });
+      if (result !== "granted") {
+        showToast(t("recent.permissionDenied"));
+        return false;
+      }
+    }
+    rootHandle = record.handle;
+    openFiles.clear();
+    openOrder.length = 0;
+    activePath = null;
+    await renderTree();
+    await saveHistory(record.folderName, record.handle);
+    return true;
+  } catch {
+    showToast(t("recent.folderNotFound"));
+    return false;
+  }
+}
+
+function buildRecentHistoryContent(history, { isSidebar = false } = {}) {
+  const fragment = document.createDocumentFragment();
+  const ul = document.createElement("ul");
+  ul.className = "recent-list";
+
+  for (const record of history) {
+    const li = document.createElement("li");
+    li.className = "recent-folder-item";
+
+    const folderBtn = document.createElement("button");
+    folderBtn.className = "recent-folder-btn";
+    folderBtn.type = "button";
+    folderBtn.textContent = `📁 ${record.folderName}`;
+    folderBtn.addEventListener("click", async () => {
+      if (isSidebar && rootHandle && rootHandle.name === record.folderName) return;
+      folderBtn.disabled = true;
+      const ok = await restoreFolder(record);
+      if (!ok) folderBtn.disabled = false;
+    });
+    li.appendChild(folderBtn);
+
+    if (record.recentFiles && record.recentFiles.length > 0) {
+      const filesUl = document.createElement("ul");
+      filesUl.className = "recent-files-list";
+      for (const f of record.recentFiles) {
+        const fileLi = document.createElement("li");
+        const fileBtn = document.createElement("button");
+        fileBtn.className = "recent-file-btn";
+        fileBtn.type = "button";
+        fileBtn.dataset.path = f.path;
+        const dirPart = f.path.includes("/") ? f.path.substring(0, f.path.lastIndexOf("/") + 1) : "";
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "recent-file-name";
+        nameSpan.textContent = `📄 ${f.name}`;
+        fileBtn.appendChild(nameSpan);
+        if (dirPart) {
+          const dirSpan = document.createElement("span");
+          dirSpan.className = "recent-file-dir";
+          dirSpan.textContent = dirPart;
+          fileBtn.appendChild(dirSpan);
+        }
+        fileBtn.addEventListener("click", async () => {
+          fileBtn.disabled = true;
+          if (isSidebar && rootHandle && rootHandle.name === record.folderName) {
+            // 同資料夾，直接開檔
+            const fileHandle = await findFileHandle(f.path);
+            if (fileHandle) {
+              await openFile(fileHandle, f.path, null);
+            } else {
+              showToast(t("alert.fileNotFound", { path: f.path }));
+              fileBtn.disabled = false;
+            }
+            return;
+          }
+          const ok = await restoreFolder(record);
+          if (!ok) { fileBtn.disabled = false; return; }
+          const fileHandle = await findFileHandle(f.path);
+          if (fileHandle) {
+            await openFile(fileHandle, f.path, null);
+          } else {
+            showToast(t("alert.fileNotFound", { path: f.path }));
+          }
+        });
+        fileLi.appendChild(fileBtn);
+        filesUl.appendChild(fileLi);
+      }
+      li.appendChild(filesUl);
+    }
+
+    ul.appendChild(li);
+  }
+
+  fragment.appendChild(ul);
+  return fragment;
+}
+
+async function renderRecentHistory() {
+  const existing = emptyEl.querySelector(".recent-history");
+  if (existing) existing.remove();
+
+  const history = await loadHistory();
+  if (history.length === 0) {
+    emptyEl.classList.remove("has-history");
+    return;
+  }
+  emptyEl.classList.add("has-history");
+
+  const section = document.createElement("div");
+  section.className = "recent-history";
+
+  const title = document.createElement("h3");
+  title.className = "recent-title";
+  title.textContent = t("recent.title");
+  section.appendChild(title);
+
+  section.appendChild(buildRecentHistoryContent(history));
+  emptyEl.appendChild(section);
+}
+
+async function renderSidebarRecentPanel() {
+  if (!recentPanelEl || !recentPanelBodyEl) return;
+
+  const history = await loadHistory();
+  if (history.length === 0) {
+    recentPanelEl.hidden = true;
+    return;
+  }
+  recentPanelEl.hidden = false;
+  recentPanelBodyEl.innerHTML = "";
+  recentPanelBodyEl.appendChild(buildRecentHistoryContent(history, { isSidebar: true }));
 }
 
 function generateTOC() {
@@ -433,6 +677,9 @@ async function openFile(fileHandle, path, sourceButton) {
   if (sourceButton) sourceButton.classList.add("active");
   setActiveFile(path);
   setStatus(t("status.opened", { path }));
+  if (rootHandle) {
+    await saveHistory(rootHandle.name, rootHandle, [{ name: file.name, path }]);
+  }
 }
 
 function resolvePath(path) {
@@ -518,7 +765,9 @@ openFolderButton.addEventListener("click", async () => {
   try {
     rootHandle = await window.showDirectoryPicker();
     openFiles.clear(); openOrder.length = 0; activePath = null;
-    setPreviewVisible(false); await renderTree();
+    setPreviewVisible(false);
+    await renderTree();
+    await saveHistory(rootHandle.name, rootHandle);
   } catch { setStatus(t("status.cancelled")); }
 });
 
@@ -577,6 +826,17 @@ if (resizerEl) {
 if (langToggle) langToggle.addEventListener("click", () => setLang(currentLang === "zh-TW" ? "en" : "zh-TW"));
 if (closeAllTabsBtn) closeAllTabsBtn.addEventListener("click", closeAllFiles);
 
+if (recentPanelToggleBtn) {
+  recentPanelToggleBtn.addEventListener("click", () => {
+    const isExpanded = recentPanelToggleBtn.getAttribute("aria-expanded") === "true";
+    const nextExpanded = !isExpanded;
+    recentPanelToggleBtn.setAttribute("aria-expanded", String(nextExpanded));
+    recentPanelBodyEl.hidden = !nextExpanded;
+    const chevron = recentPanelToggleBtn.querySelector(".chevron-icon");
+    if (chevron) chevron.classList.toggle("rotated", nextExpanded);
+  });
+}
+
 async function init() {
   await loadLocale(currentLang);
   applyLocale(currentLang);
@@ -585,5 +845,6 @@ async function init() {
   appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   setSidebarCollapsed(false);
   setPreviewVisible(false);
+  await renderSidebarRecentPanel();
 }
 init();

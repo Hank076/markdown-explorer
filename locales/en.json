@@ -32,5 +32,9 @@
   "alert.fileNotFound": "File not found: {path}",
   "toc.title": "Table of Contents",
   "lang.current": "EN",
-  "lang.switchLabel": "切換為中文"
+  "lang.switchLabel": "切換為中文",
+  "recent.title": "Recent",
+  "recent.permissionDenied": "Permission denied",
+  "recent.folderNotFound": "Folder not found, please reopen",
+  "sidebar.recentPanel": "Recent"
 }

@@ -32,5 +32,9 @@
   "alert.fileNotFound": "找不到文件：{path}",
   "toc.title": "目錄",
   "lang.current": "中",
-  "lang.switchLabel": "Switch to English"
+  "lang.switchLabel": "Switch to English",
+  "recent.title": "最近開啟",
+  "recent.permissionDenied": "使用者拒絕授權，無法開啟資料夾",
+  "recent.folderNotFound": "找不到資料夾，請重新開啟",
+  "sidebar.recentPanel": "最近開啟"
 }
