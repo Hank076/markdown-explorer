@@ -119,6 +119,7 @@ const appEl = document.querySelector(".app");
 const sidebarEl = document.querySelector(".sidebar");
 const resizerEl = document.querySelector(".sidebar-resizer");
 const viewerEl = document.querySelector(".viewer");
+const workspaceEl = document.querySelector(".workspace");
 const rootEl = document.documentElement;
 
 const langToggle = document.getElementById("lang-toggle");
@@ -224,6 +225,8 @@ function applyLocale(lang) {
 
   const recentPanelLabelEl = document.getElementById("recent-panel-label");
   if (recentPanelLabelEl) recentPanelLabelEl.textContent = t("sidebar.recentPanel");
+
+  if (workspaceEl) workspaceEl.dataset.dragHint = t("dragdrop.hint");
 }
 
 async function setLang(lang) {
@@ -861,6 +864,41 @@ if (recentPanelToggleBtn) {
     recentPanelBodyEl.hidden = !nextExpanded;
     const chevron = recentPanelToggleBtn.querySelector(".chevron-icon");
     if (chevron) chevron.classList.toggle("rotated", nextExpanded);
+  });
+}
+
+if (workspaceEl) {
+  workspaceEl.addEventListener("dragenter", (e) => {
+    if (e.dataTransfer.types.includes("Files")) {
+      workspaceEl.classList.add("drag-over");
+    }
+  });
+
+  workspaceEl.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.types.includes("Files")) {
+      workspaceEl.classList.add("drag-over");
+    }
+  });
+
+  workspaceEl.addEventListener("dragleave", (e) => {
+    if (!workspaceEl.contains(e.relatedTarget)) {
+      workspaceEl.classList.remove("drag-over");
+    }
+  });
+
+  workspaceEl.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    workspaceEl.classList.remove("drag-over");
+    const item = e.dataTransfer.items[0];
+    if (!item) return;
+    const handle = await item.getAsFileSystemHandle();
+    if (!handle || handle.kind !== "file") return;
+    if (!handle.name.toLowerCase().endsWith(".md")) {
+      showToast(t("alert.onlyMarkdown"));
+      return;
+    }
+    await openFile(handle, handle.name, null);
   });
 }
 
