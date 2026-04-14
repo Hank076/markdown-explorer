@@ -418,9 +418,9 @@ body {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
-  border: 2px dashed var(--color-accent, #6c63ff);
+  border: 2px dashed var(--color-primary);
   color: #fff;
-  font-size: 1.1rem;
+  font-size: var(--font-size-h4);
   font-weight: 600;
   letter-spacing: 0.02em;
   pointer-events: none;
