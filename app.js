@@ -869,6 +869,7 @@ if (recentPanelToggleBtn) {
 
 if (workspaceEl) {
   workspaceEl.addEventListener("dragenter", (e) => {
+    e.preventDefault();
     if (e.dataTransfer.types.includes("Files")) {
       workspaceEl.classList.add("drag-over");
     }
