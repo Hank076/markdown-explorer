@@ -409,6 +409,27 @@ body {
   overflow: hidden;
 }
 
+.workspace.drag-over {
+  position: relative;
+}
+
+.workspace.drag-over::after {
+  content: attr(data-drag-hint);
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px dashed var(--color-accent, #6c63ff);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 100;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+}
+
 .topbar {
   display: flex;
   align-items: center;
