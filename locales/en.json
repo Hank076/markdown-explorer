@@ -36,5 +36,7 @@
   "recent.title": "Recent",
   "recent.permissionDenied": "Permission denied",
   "recent.folderNotFound": "Folder not found, please reopen",
-  "sidebar.recentPanel": "Recent"
+  "sidebar.recentPanel": "Recent",
+  "dragdrop.hint": "Drop to open Markdown file",
+  "alert.onlyMarkdown": "Only .md files are supported"
 }

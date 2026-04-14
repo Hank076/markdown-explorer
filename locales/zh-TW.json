@@ -36,5 +36,7 @@
   "recent.title": "最近開啟",
   "recent.permissionDenied": "使用者拒絕授權，無法開啟資料夾",
   "recent.folderNotFound": "找不到資料夾，請重新開啟",
-  "sidebar.recentPanel": "最近開啟"
+  "sidebar.recentPanel": "最近開啟",
+  "dragdrop.hint": "放開以開啟 Markdown 檔案",
+  "alert.onlyMarkdown": "僅支援 .md 檔案"
 }
