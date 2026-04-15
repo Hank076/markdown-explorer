@@ -253,12 +253,28 @@ const openOrder = [];
 const scrollPositions = new Map();
 let idSeed = 0;
 
+function slugifyHeading(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+}
+
 marked.use({
   renderer: {
     html() { return ""; },
+    heading({ tokens, depth, text }) {
+      const id = slugifyHeading(text);
+      const inner = this.parser.parseInline(tokens);
+      return `<h${depth} id="${id}">${inner}</h${depth}>\n`;
+    },
     link({ href, title, text }) {
       const safeTitle = title ? ` title="${title}"` : "";
-      if (href && !/^(https?:\/\/|\/\/|mailto:|#)/.test(href)) {
+      if (href && href.startsWith("#")) {
+        return `<a href="${href}" class="anchor-link"${safeTitle}>${text}</a>`;
+      }
+      if (href && !/^(https?:\/\/|\/\/|mailto:)/.test(href)) {
         return `<a href="${href}" class="internal-link" data-href="${href}"${safeTitle}>${text}</a>`;
       }
       return `<a href="${href}" target="_blank" rel="noopener noreferrer"${safeTitle}>${text}</a>`;
@@ -782,6 +798,14 @@ function renderPreview() {
   }
   previewEl.querySelectorAll("a.internal-link").forEach((link) => {
     link.addEventListener("click", (e) => { e.preventDefault(); navigateToInternalLink(link.dataset.href); });
+  });
+  previewEl.querySelectorAll("a.anchor-link").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const id = link.getAttribute("href").slice(1);
+      const target = previewEl.querySelector(`#${CSS.escape(id)}`);
+      if (target) target.scrollIntoView({ behavior: "smooth" });
+    });
   });
   generateTOC();
   setPreviewVisible(true);
