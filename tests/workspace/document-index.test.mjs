@@ -66,3 +66,21 @@ Paragraph
     ]
   );
 });
+
+test("buildDocumentRecord uses rendered text for link headings", () => {
+  const record = buildDocumentRecord({
+    path: "guide/link-heading.md",
+    content: "# [Install](./guide.md)\n",
+  });
+
+  assert.deepEqual(record.headings, [{ level: 1, text: "Install", id: "install" }]);
+});
+
+test("buildDocumentRecord uses rendered text for emphasis and codespan headings", () => {
+  const record = buildDocumentRecord({
+    path: "guide/inline-heading.md",
+    content: "# *Quick* `Start`\n",
+  });
+
+  assert.deepEqual(record.headings, [{ level: 1, text: "Quick Start", id: "quick-start" }]);
+});

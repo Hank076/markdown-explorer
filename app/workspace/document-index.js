@@ -1,6 +1,8 @@
 import { marked } from "../../libs/marked/marked.esm.js";
 import { buildHeadingRecords } from "./headings.js";
 
+const headingTextRenderer = new marked.TextRenderer();
+
 function stripMarkdown(markdown = "") {
   return markdown
     .replace(/```[\s\S]*?```/g, " ")
@@ -32,9 +34,10 @@ function collectHeadingTokens(tokens, output = []) {
     }
 
     if (token.type === "heading" && typeof token.depth === "number" && token.depth >= 1 && token.depth <= 4) {
+      const renderedText = marked.Parser.parseInline(token.tokens || [], { renderer: headingTextRenderer }).trim();
       output.push({
         level: token.depth,
-        text: (token.text || "").trim(),
+        text: renderedText,
       });
     }
 
