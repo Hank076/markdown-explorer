@@ -9,6 +9,10 @@ const sidebarToggle = document.getElementById("sidebar-toggle");
 const treeEl = document.getElementById("tree");
 const tabsEl = document.getElementById("tabs");
 const previewEl = document.getElementById("preview");
+const tocEl = document.getElementById("toc");
+const tocListContainer = document.getElementById("toc-list-container");
+const tocToggleBtn = document.getElementById("toc-toggle");
+const viewerContainerEl = document.getElementById("viewer-container");
 const emptyEl = document.getElementById("empty");
 const statusText = document.getElementById("status-text");
 const appEl = document.querySelector(".app");
@@ -16,6 +20,7 @@ const sidebarEl = document.querySelector(".sidebar");
 const resizerEl = document.querySelector(".sidebar-resizer");
 const viewerEl = document.querySelector(".viewer");
 const rootEl = document.documentElement;
+const searchShellEl = document.querySelector(".search-shell");
 
 const langToggle = document.getElementById("lang-toggle");
 const workspaceSearchInput = document.getElementById("workspace-search");
@@ -86,6 +91,7 @@ function applyLocale(lang) {
   if (sidebarEl) sidebarEl.setAttribute("aria-label", t("aria.sidebar"));
   if (tabsEl) tabsEl.setAttribute("aria-label", t("aria.tabs"));
   if (previewEl) previewEl.setAttribute("aria-label", t("aria.preview"));
+  if (tocEl) tocEl.setAttribute("aria-label", t("toc.title"));
 
   // Update theme toggle aria-label based on current theme
   const currentTheme = rootEl.getAttribute("data-theme");
@@ -113,6 +119,22 @@ function applyLocale(lang) {
 
   if (searchResultsLabel) {
     searchResultsLabel.textContent = t("search.results");
+  }
+
+  const tocTitleEl = tocEl?.querySelector(".toc-title");
+  if (tocTitleEl) {
+    tocTitleEl.textContent = t("toc.title");
+  }
+
+  const tocCollapsedLabel = document.getElementById("toc-collapsed-label");
+  if (tocCollapsedLabel) {
+    tocCollapsedLabel.textContent = t("toc.title");
+  }
+
+  if (tocToggleBtn && tocEl) {
+    const isCollapsed = tocEl.classList.contains("collapsed");
+    tocToggleBtn.setAttribute("aria-label", isCollapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
+    tocToggleBtn.innerHTML = isCollapsed ? ICON_TOC_OPEN : ICON_TOC_CLOSE;
   }
 
   if (!rootHandle) {
@@ -175,6 +197,8 @@ const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
 const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 const ICON_PANEL_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m16 15-3-3 3-3"/></svg>`;
 const ICON_PANEL_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m12 9 3 3-3 3"/></svg>`;
+const ICON_TOC_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>`;
+const ICON_TOC_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`;
 
 function getPreferredTheme() {
   const stored = localStorage.getItem(themeStorageKey);
@@ -213,8 +237,94 @@ function setStatus(text, loading = false) {
 }
 
 function setPreviewVisible(isVisible) {
+  if (viewerContainerEl) {
+    viewerContainerEl.hidden = !isVisible;
+  }
   previewEl.style.display = isVisible ? "block" : "none";
   emptyEl.style.display = isVisible ? "none" : "flex";
+}
+
+function generateTOC() {
+  if (!tocEl || !tocListContainer) {
+    return;
+  }
+
+  const headings = [...previewEl.querySelectorAll("h1, h2, h3, h4")];
+  tocListContainer.innerHTML = "";
+
+  if (headings.length === 0) {
+    tocEl.style.display = "none";
+    return;
+  }
+
+  tocEl.style.display = "flex";
+
+  const list = document.createElement("ul");
+  list.className = "toc-list";
+
+  headings.forEach((heading, index) => {
+    const id = heading.id || `heading-${index}`;
+    heading.id = id;
+
+    const level = Number.parseInt(heading.tagName[1], 10);
+    const item = document.createElement("li");
+    item.className = "toc-item";
+    item.dataset.level = String(level);
+
+    const link = document.createElement("a");
+    link.className = "toc-link";
+    link.href = `#${id}`;
+    link.textContent = heading.textContent || id;
+    link.title = heading.textContent || id;
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      pendingAnchor = id;
+      applyPendingAnchor();
+    });
+
+    item.appendChild(link);
+    list.appendChild(item);
+  });
+
+  tocListContainer.appendChild(list);
+  updateTOCActive();
+}
+
+function setTOCCollapsed(collapsed) {
+  if (!tocEl || !tocToggleBtn) {
+    return;
+  }
+
+  tocEl.classList.toggle("collapsed", collapsed);
+  tocToggleBtn.setAttribute("aria-pressed", collapsed ? "true" : "false");
+  tocToggleBtn.setAttribute("aria-label", collapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
+  tocToggleBtn.innerHTML = collapsed ? ICON_TOC_OPEN : ICON_TOC_CLOSE;
+}
+
+function updateTOCActive() {
+  if (!tocEl || tocEl.classList.contains("collapsed") || tocEl.style.display === "none") {
+    return;
+  }
+
+  const headings = [...previewEl.querySelectorAll("h1, h2, h3, h4")];
+  const scrollPos = viewerEl.scrollTop + 64;
+  let activeId = null;
+
+  for (const heading of headings) {
+    if (heading.offsetTop <= scrollPos) {
+      activeId = heading.id;
+    } else {
+      break;
+    }
+  }
+
+  tocEl.querySelectorAll(".toc-link").forEach((link) => {
+    const isActive = link.getAttribute("href") === `#${activeId}`;
+    link.classList.toggle("active", isActive);
+    if (isActive) {
+      link.scrollIntoView({ behavior: "auto", block: "nearest" });
+    }
+  });
 }
 
 function makeId() {
@@ -669,6 +779,7 @@ function renderPreview() {
   const html = marked.parse(file.content);
   previewEl.innerHTML = html;
   assignRenderedHeadingIds(documentIndex.get(activePath));
+  generateTOC();
 
   const previewPath = activePath;
   previewEl.querySelectorAll("img").forEach((image) => {
@@ -912,6 +1023,29 @@ if (workspaceSearchInput) {
     runSearch(nextQuery);
   });
 }
+
+if (tocToggleBtn && tocEl) {
+  tocToggleBtn.addEventListener("click", () => {
+    setTOCCollapsed(!tocEl.classList.contains("collapsed"));
+  });
+}
+
+if (viewerEl) {
+  viewerEl.addEventListener("scroll", updateTOCActive, { passive: true });
+}
+
+document.addEventListener("pointerdown", (event) => {
+  if (!searchShellEl || !searchResultsEl || searchResultsEl.hidden) {
+    return;
+  }
+
+  const target = event.target instanceof Node ? event.target : null;
+  if (target && searchShellEl.contains(target)) {
+    return;
+  }
+
+  hideSearchResults();
+});
 
 async function init() {
   await loadLocale(currentLang);

@@ -34,29 +34,31 @@
       <main class="workspace">
         <div class="topbar">
           <div id="tabs" class="tabs" role="tablist" aria-label="已開啟檔案"></div>
-          <label class="search-box" for="workspace-search">
-            <span id="workspace-search-label" class="sr-only">搜尋文件</span>
-            <input
-              id="workspace-search"
-              type="search"
-              placeholder="搜尋檔名、標題或內容"
-              autocomplete="off"
-            />
-          </label>
+          <div class="search-shell">
+            <label class="search-box" for="workspace-search">
+              <span id="workspace-search-label" class="sr-only">搜尋文件</span>
+              <input
+                id="workspace-search"
+                type="search"
+                placeholder="搜尋檔名、標題或內容"
+                autocomplete="off"
+              />
+            </label>
+            <aside
+              id="search-results"
+              class="search-results"
+              role="region"
+              aria-live="polite"
+              aria-atomic="false"
+              aria-labelledby="search-results-label"
+              hidden
+            >
+              <h2 id="search-results-label" class="sr-only">搜尋結果</h2>
+            </aside>
+          </div>
           <button id="lang-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="Switch to English">中</button>
           <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="切換主題"></button>
         </div>
-        <aside
-          id="search-results"
-          class="search-results"
-          role="region"
-          aria-live="polite"
-          aria-atomic="false"
-          aria-labelledby="search-results-label"
-          hidden
-        >
-          <h2 id="search-results-label" class="sr-only">搜尋結果</h2>
-        </aside>
         <section class="viewer" aria-live="polite">
           <div id="empty" class="empty-state">
             <div class="empty-card">
@@ -69,7 +71,17 @@
               </ul>
             </div>
           </div>
-          <article id="preview" class="preview" aria-label="Markdown 預覽"></article>
+          <div id="viewer-container" class="viewer-container" hidden>
+            <article id="preview" class="preview" aria-label="Markdown 預覽"></article>
+            <aside id="toc" class="toc" aria-label="目錄">
+              <button id="toc-toggle" class="toc-toggle-btn" type="button" aria-label="切換目錄"></button>
+              <span id="toc-collapsed-label" class="toc-collapsed-label" aria-hidden="true">目錄</span>
+              <div class="toc-content">
+                <div class="toc-title">目錄</div>
+                <div id="toc-list-container"></div>
+              </div>
+            </aside>
+          </div>
         </section>
       </main>
     </div>
