@@ -1,6 +1,7 @@
 import { marked } from "./libs/marked/marked.esm.js";
 import { splitDocumentLink, resolveWorkspacePath } from "./app/workspace/path-utils.js";
 import { createAssetUrlRegistry, isWorkspaceRelativeHref, resolveAssetUrl } from "./app/workspace/assets.js";
+import { buildDocumentRecord, searchDocumentIndex } from "./app/workspace/document-index.js";
 
 const openFolderButton = document.getElementById("open-folder");
 const themeToggle = document.getElementById("theme-toggle");
@@ -126,6 +127,10 @@ const openFiles = new Map();
 const openOrder = [];
 const scrollPositions = new Map();
 const previewAssets = createAssetUrlRegistry();
+let searchQuery = "";
+let currentSearchResults = { files: [], headings: [], content: [] };
+let indexBuildToken = 0;
+const documentIndex = new Map();
 let idSeed = 0;
 
 marked.use({
@@ -215,6 +220,61 @@ async function readDirectoryEntries(dirHandle) {
   });
 
   return entries;
+}
+
+async function collectMarkdownPaths(dirHandle, prefix = "") {
+  const records = [];
+
+  for await (const [name, handle] of dirHandle.entries()) {
+    const path = `${prefix}${name}`;
+    if (handle.kind === "directory") {
+      records.push(...(await collectMarkdownPaths(handle, `${path}/`)));
+      continue;
+    }
+    if (name.toLowerCase().endsWith(".md")) {
+      records.push({ path, handle });
+    }
+  }
+
+  return records;
+}
+
+function runSearch(query) {
+  searchQuery = query;
+  currentSearchResults = searchDocumentIndex([...documentIndex.values()], query);
+  if (typeof globalThis.renderSearchResults === "function") {
+    globalThis.renderSearchResults(currentSearchResults);
+  }
+}
+
+async function buildWorkspaceIndex() {
+  if (!rootHandle) {
+    return;
+  }
+
+  const token = ++indexBuildToken;
+  documentIndex.clear();
+  setStatus(t("status.scanning"), true);
+
+  const files = await collectMarkdownPaths(rootHandle);
+
+  for (const entry of files) {
+    if (token !== indexBuildToken) {
+      return;
+    }
+
+    const file = await entry.handle.getFile();
+    const content = await file.text();
+    documentIndex.set(entry.path, buildDocumentRecord({ path: entry.path, content }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  if (token !== indexBuildToken) {
+    return;
+  }
+
+  setStatus(t("status.ready"));
+  runSearch(searchQuery);
 }
 
 function createNodeButton(label, icon, depth = 0) {
@@ -354,6 +414,7 @@ async function openFile(fileHandle, path, sourceButton) {
   const file = await fileHandle.getFile();
   const content = await file.text();
   openFiles.set(path, { name: file.name, handle: fileHandle, content, headings: [] });
+  documentIndex.set(path, buildDocumentRecord({ path, content }));
   openOrder.push(path);
   if (sourceButton) {
     sourceButton.classList.add("active");
@@ -551,9 +612,14 @@ openFolderButton.addEventListener("click", async () => {
     openOrder.length = 0;
     activePath = null;
     pendingAnchor = "";
+    searchQuery = "";
+    currentSearchResults = { files: [], headings: [], content: [] };
+    documentIndex.clear();
+    indexBuildToken += 1;
     previewAssets.clear();
     setPreviewVisible(false);
     await renderTree();
+    void buildWorkspaceIndex();
   } catch (error) {
     setStatus(t("status.cancelled"));
   }
