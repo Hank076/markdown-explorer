@@ -18,6 +18,9 @@ const viewerEl = document.querySelector(".viewer");
 const rootEl = document.documentElement;
 
 const langToggle = document.getElementById("lang-toggle");
+const workspaceSearchInput = document.getElementById("workspace-search");
+const workspaceSearchLabel = document.getElementById("workspace-search-label");
+const searchResultsEl = document.getElementById("search-results");
 
 const langStorageKey = "markdown-explorer-lang";
 // BCP 47 tag map: locale key → precise html lang attribute value
@@ -98,9 +101,20 @@ function applyLocale(lang) {
     langToggle.setAttribute("aria-pressed", lang === "en" ? "true" : "false");
   }
 
+  if (workspaceSearchInput) {
+    workspaceSearchInput.placeholder = t("search.placeholder");
+    workspaceSearchInput.setAttribute("aria-label", t("search.label"));
+  }
+
+  if (workspaceSearchLabel) {
+    workspaceSearchLabel.textContent = t("search.label");
+  }
+
   if (!rootHandle) {
     statusText.textContent = t("status.waiting");
   }
+
+  renderSearchResults(currentSearchResults);
 }
 
 async function setLang(lang) {
@@ -242,9 +256,7 @@ async function collectMarkdownPaths(dirHandle, prefix = "") {
 function runSearch(query) {
   searchQuery = query;
   currentSearchResults = searchDocumentIndex([...documentIndex.values()], query);
-  if (typeof globalThis.renderSearchResults === "function") {
-    globalThis.renderSearchResults(currentSearchResults);
-  }
+  renderSearchResults(currentSearchResults);
 }
 
 async function buildWorkspaceIndex() {
@@ -254,7 +266,7 @@ async function buildWorkspaceIndex() {
 
   const token = ++indexBuildToken;
   documentIndex.clear();
-  setStatus(t("status.scanning"), true);
+  setStatus(t("status.indexing"), true);
   try {
     const files = await collectMarkdownPaths(rootHandle);
 
@@ -280,6 +292,133 @@ async function buildWorkspaceIndex() {
     setStatus(t("status.ready"));
     runSearch(searchQuery);
   }
+}
+
+function hideSearchResults() {
+  if (!searchResultsEl) {
+    return;
+  }
+
+  searchResultsEl.hidden = true;
+  searchResultsEl.innerHTML = "";
+}
+
+function createSearchResultButton({ title, path, meta = "", onClick }) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "search-result-link";
+
+  const titleEl = document.createElement("span");
+  titleEl.className = "search-result-title";
+  titleEl.textContent = title;
+
+  const pathEl = document.createElement("span");
+  pathEl.className = "search-result-path";
+  pathEl.textContent = path;
+
+  button.append(titleEl, pathEl);
+
+  if (meta) {
+    const metaEl = document.createElement("span");
+    metaEl.className = "search-result-meta";
+    metaEl.textContent = meta;
+    button.appendChild(metaEl);
+  }
+
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+async function openSearchResult(path, anchor = "") {
+  if (!rootHandle) {
+    return;
+  }
+
+  const fileHandle = await findFileHandle(path);
+  if (!fileHandle) {
+    alert(t("alert.fileNotFound", { path }));
+    return;
+  }
+
+  pendingAnchor = anchor;
+  await openFile(fileHandle, path, null);
+  hideSearchResults();
+}
+
+function renderSearchGroup(title, items) {
+  const group = document.createElement("section");
+  group.className = "search-result-group";
+
+  const heading = document.createElement("h2");
+  heading.className = "search-result-group-title";
+  heading.textContent = title;
+  group.appendChild(heading);
+
+  if (items.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "search-result-empty";
+    empty.textContent = t("search.empty");
+    group.appendChild(empty);
+    return group;
+  }
+
+  const list = document.createElement("div");
+  list.className = "search-result-list";
+  items.forEach((item) => list.appendChild(item));
+  group.appendChild(list);
+  return group;
+}
+
+function renderSearchResults(results) {
+  if (!searchResultsEl) {
+    return;
+  }
+
+  if (!searchQuery.trim()) {
+    hideSearchResults();
+    return;
+  }
+
+  searchResultsEl.hidden = false;
+  searchResultsEl.innerHTML = "";
+
+  const fileItems = results.files.map((record) =>
+    createSearchResultButton({
+      title: record.name,
+      path: record.path,
+      onClick: () => {
+        void openSearchResult(record.path);
+      },
+    })
+  );
+
+  const headingItems = results.headings.map(({ path, heading }) =>
+    createSearchResultButton({
+      title: heading.text,
+      path,
+      meta: `#${heading.id}`,
+      onClick: () => {
+        void openSearchResult(path, heading.id);
+      },
+    })
+  );
+
+  const contentItems = results.content.map(({ path, excerpt }) =>
+    createSearchResultButton({
+      title: path.split("/").at(-1) || path,
+      path,
+      meta: excerpt,
+      onClick: () => {
+        void openSearchResult(path);
+      },
+    })
+  );
+
+  searchResultsEl.append(
+    renderSearchGroup(t("search.files"), fileItems),
+    renderSearchGroup(t("search.headings"), headingItems),
+    renderSearchGroup(t("search.content"), contentItems)
+  );
 }
 
 function createNodeButton(label, icon, depth = 0) {
@@ -493,8 +632,10 @@ function renderPreview() {
         if (activePath !== previewPath) {
           return;
         }
-        image.classList.add("preview-image-missing");
-        image.dataset.missingSrc = src;
+        const fallback = document.createElement("div");
+        fallback.className = "preview-image-missing";
+        fallback.textContent = t("alert.assetNotFound", { path: src });
+        image.replaceWith(fallback);
       });
   });
 
@@ -622,6 +763,10 @@ openFolderButton.addEventListener("click", async () => {
     documentIndex.clear();
     indexBuildToken += 1;
     previewAssets.clear();
+    if (workspaceSearchInput) {
+      workspaceSearchInput.value = "";
+    }
+    hideSearchResults();
     setPreviewVisible(false);
     await renderTree();
     void buildWorkspaceIndex();
@@ -697,6 +842,13 @@ if (langToggle) {
   langToggle.addEventListener("click", () => {
     const nextLang = currentLang === "zh-TW" ? "en" : "zh-TW";
     setLang(nextLang);
+  });
+}
+
+if (workspaceSearchInput) {
+  workspaceSearchInput.addEventListener("input", (event) => {
+    const nextQuery = event.target instanceof HTMLInputElement ? event.target.value : "";
+    runSearch(nextQuery);
   });
 }
 

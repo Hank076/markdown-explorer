@@ -13,6 +13,7 @@
   "status.readyPath": "Ready: {path}",
   "status.readingFolder": "Reading folder: {path}",
   "status.readingFile": "Reading file: {path}",
+  "status.indexing": "Building search index...",
   "status.opened": "Opened: {path}",
   "status.cancelled": "Folder selection cancelled",
   "status.unsupported": "File System Access API is not supported in this browser",
@@ -25,6 +26,14 @@
   "aria.themeToDark": "Switch to dark mode",
   "tab.closeLabel": "Close {name}",
   "alert.fileNotFound": "File not found: {path}",
+  "alert.assetNotFound": "Attachment not found: {path}",
+  "alert.anchorNotFound": "Heading not found: {path}",
+  "search.placeholder": "Search file names, headings, or content",
+  "search.label": "Search documents",
+  "search.files": "Files",
+  "search.headings": "Headings",
+  "search.content": "Content",
+  "search.empty": "No matches found",
   "lang.current": "EN",
   "lang.switchLabel": "切換為中文"
 }
