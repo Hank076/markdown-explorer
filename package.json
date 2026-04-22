@@ -14,7 +14,8 @@
     "no-build"
   ],
   "scripts": {
-    "start": "npx serve ."
+    "start": "npx serve .",
+    "test": "node --test tests/workspace/*.test.mjs"
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
