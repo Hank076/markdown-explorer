@@ -40,6 +40,7 @@
   --prose-h-border: 1px solid var(--color-border-subtle);
   --prose-blockquote-border-width: 3px;
   --prose-paragraph-spacing: 0;
+  --prose-h-accent: var(--color-text-primary);
 }
 
 html[data-theme="dark"] {
@@ -126,6 +127,26 @@ html[data-prose="editorial"] {
   --prose-h-border: none;
   --prose-blockquote-border-width: 2px;
   --prose-paragraph-spacing: var(--space-4);
+}
+
+/* ── Prose heading accent colours ── */
+html[data-theme="light"][data-prose="github"] {
+  --prose-h-accent: #0969da;
+}
+html[data-theme="dark"][data-prose="github"] {
+  --prose-h-accent: #79c0ff;
+}
+html[data-theme="light"][data-prose="notion"] {
+  --prose-h-accent: #6d5ede;
+}
+html[data-theme="dark"][data-prose="notion"] {
+  --prose-h-accent: #c4b5fd;
+}
+html[data-theme="light"][data-prose="editorial"] {
+  --prose-h-accent: #92400e;
+}
+html[data-theme="dark"][data-prose="editorial"] {
+  --prose-h-accent: #fcd34d;
 }
 
 * {
@@ -1216,16 +1237,19 @@ body {
 .preview h1 {
   font-size: var(--font-size-h1);
   line-height: var(--line-height-h1);
+  color: var(--prose-h-accent);
 }
 
 .preview h2 {
   font-size: var(--font-size-h2);
   line-height: var(--line-height-h2);
+  color: color-mix(in srgb, var(--prose-h-accent) 80%, var(--color-text-secondary));
 }
 
 .preview h3 {
   font-size: var(--font-size-h3);
   line-height: var(--line-height-h3);
+  color: color-mix(in srgb, var(--prose-h-accent) 60%, var(--color-text-secondary));
 }
 
 .preview pre {
