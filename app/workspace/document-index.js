@@ -1,3 +1,4 @@
+import { marked } from "../../libs/marked/marked.esm.js";
 import { buildHeadingRecords } from "./headings.js";
 
 function stripMarkdown(markdown = "") {
@@ -20,11 +21,40 @@ function rankPath(path = "", query = "") {
   };
 }
 
+function collectHeadingTokens(tokens, output = []) {
+  if (!Array.isArray(tokens)) {
+    return output;
+  }
+
+  for (const token of tokens) {
+    if (!token || typeof token !== "object") {
+      continue;
+    }
+
+    if (token.type === "heading" && typeof token.depth === "number" && token.depth >= 1 && token.depth <= 4) {
+      output.push({
+        level: token.depth,
+        text: (token.text || "").trim(),
+      });
+    }
+
+    for (const value of Object.values(token)) {
+      if (Array.isArray(value)) {
+        collectHeadingTokens(value, output);
+      }
+    }
+  }
+
+  return output;
+}
+
+export function extractHeadingMatches(content = "") {
+  const tokens = marked.lexer(content);
+  return collectHeadingTokens(tokens);
+}
+
 export function buildDocumentRecord({ path, content }) {
-  const headingMatches = [...content.matchAll(/^(#{1,4})\s+(.+)$/gm)].map((match) => ({
-    level: match[1].length,
-    text: match[2].trim(),
-  }));
+  const headingMatches = extractHeadingMatches(content);
   const headings = buildHeadingRecords(headingMatches);
 
   return {

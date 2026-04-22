@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildDocumentRecord, searchDocumentIndex } from "../../app/workspace/document-index.js";
+import { buildDocumentRecord, extractHeadingMatches, searchDocumentIndex } from "../../app/workspace/document-index.js";
 
 test("buildDocumentRecord extracts headings and plain text", () => {
   const record = buildDocumentRecord({
@@ -31,4 +31,38 @@ test("searchDocumentIndex returns empty groups for blank queries", () => {
   const result = searchDocumentIndex(index, "   ");
 
   assert.deepEqual(result, { files: [], headings: [], content: [] });
+});
+
+test("extractHeadingMatches ignores fenced code headings", () => {
+  const headings = extractHeadingMatches(`
+\`\`\`md
+# not-a-heading
+\`\`\`
+
+# Real Heading
+`);
+
+  assert.deepEqual(headings, [{ level: 1, text: "Real Heading" }]);
+});
+
+test("buildDocumentRecord includes setext headings with stable ids", () => {
+  const record = buildDocumentRecord({
+    path: "guide/setext.md",
+    content: `Title
+=====
+
+Subtitle
+--------
+
+Paragraph
+`,
+  });
+
+  assert.deepEqual(
+    record.headings.map(({ level, text, id }) => ({ level, text, id })),
+    [
+      { level: 1, text: "Title", id: "title" },
+      { level: 2, text: "Subtitle", id: "subtitle" },
+    ]
+  );
 });
