@@ -84,3 +84,21 @@ test("buildDocumentRecord uses rendered text for emphasis and codespan headings"
 
   assert.deepEqual(record.headings, [{ level: 1, text: "Quick Start", id: "quick-start" }]);
 });
+
+test("buildDocumentRecord strips inline HTML from heading text", () => {
+  const record = buildDocumentRecord({
+    path: "guide/html-heading.md",
+    content: "# <span>Install</span>\n",
+  });
+
+  assert.deepEqual(record.headings, [{ level: 1, text: "Install", id: "install" }]);
+});
+
+test("buildDocumentRecord decodes HTML entities in heading text", () => {
+  const record = buildDocumentRecord({
+    path: "guide/entity-heading.md",
+    content: "# Install &amp; Go\n",
+  });
+
+  assert.deepEqual(record.headings, [{ level: 1, text: "Install & Go", id: "install-go" }]);
+});

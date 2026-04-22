@@ -2,6 +2,14 @@ import { marked } from "../../libs/marked/marked.esm.js";
 import { buildHeadingRecords } from "./headings.js";
 
 const headingTextRenderer = new marked.TextRenderer();
+const namedHtmlEntities = new Map([
+  ["amp", "&"],
+  ["lt", "<"],
+  ["gt", ">"],
+  ["quot", '"'],
+  ["apos", "'"],
+  ["nbsp", "\u00a0"],
+]);
 
 function stripMarkdown(markdown = "") {
   return markdown
@@ -23,6 +31,27 @@ function rankPath(path = "", query = "") {
   };
 }
 
+function stripInlineHtml(text = "") {
+  return text.replace(/<[^>]*>/g, "");
+}
+
+function decodeHtmlEntities(text = "") {
+  return text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]+);/g, (match, entity) => {
+    if (entity[0] === "#") {
+      const isHex = entity[1]?.toLowerCase() === "x";
+      const rawValue = isHex ? entity.slice(2) : entity.slice(1);
+      const codePoint = Number.parseInt(rawValue, isHex ? 16 : 10);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+
+    return namedHtmlEntities.get(entity) ?? match;
+  });
+}
+
+function normalizeHeadingText(text = "") {
+  return decodeHtmlEntities(stripInlineHtml(text)).trim();
+}
+
 function collectHeadingTokens(tokens, output = []) {
   if (!Array.isArray(tokens)) {
     return output;
@@ -37,7 +66,7 @@ function collectHeadingTokens(tokens, output = []) {
       const renderedText = marked.Parser.parseInline(token.tokens || [], { renderer: headingTextRenderer }).trim();
       output.push({
         level: token.depth,
-        text: renderedText,
+        text: normalizeHeadingText(renderedText),
       });
     }
 
