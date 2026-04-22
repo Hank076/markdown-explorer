@@ -24,3 +24,11 @@ test("searchDocumentIndex groups file, heading, and content matches", () => {
   assert.equal(result.headings[0].heading.id, "install");
   assert.equal(result.content[0].path, "guide/install.md");
 });
+
+test("searchDocumentIndex returns empty groups for blank queries", () => {
+  const index = [buildDocumentRecord({ path: "README.md", content: "# Overview\n\nIntro" })];
+
+  const result = searchDocumentIndex(index, "   ");
+
+  assert.deepEqual(result, { files: [], headings: [], content: [] });
+});

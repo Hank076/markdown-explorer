@@ -255,26 +255,31 @@ async function buildWorkspaceIndex() {
   const token = ++indexBuildToken;
   documentIndex.clear();
   setStatus(t("status.scanning"), true);
+  try {
+    const files = await collectMarkdownPaths(rootHandle);
 
-  const files = await collectMarkdownPaths(rootHandle);
+    for (const entry of files) {
+      if (token !== indexBuildToken) {
+        return;
+      }
 
-  for (const entry of files) {
+      const file = await entry.handle.getFile();
+      const content = await file.text();
+      documentIndex.set(entry.path, buildDocumentRecord({ path: entry.path, content }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  } catch (error) {
+    if (token === indexBuildToken) {
+      console.warn("[index] Failed to build workspace index:", error);
+    }
+  } finally {
     if (token !== indexBuildToken) {
       return;
     }
 
-    const file = await entry.handle.getFile();
-    const content = await file.text();
-    documentIndex.set(entry.path, buildDocumentRecord({ path: entry.path, content }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    setStatus(t("status.ready"));
+    runSearch(searchQuery);
   }
-
-  if (token !== indexBuildToken) {
-    return;
-  }
-
-  setStatus(t("status.ready"));
-  runSearch(searchQuery);
 }
 
 function createNodeButton(label, icon, depth = 0) {
