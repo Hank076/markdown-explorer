@@ -56,6 +56,28 @@
         <div class="topbar">
           <div id="tabs" class="tabs" role="tablist" aria-label="已開啟檔案"></div>
           <button id="close-all-tabs" class="close-all-tabs-btn" type="button" aria-label="關閉所有分頁" hidden></button>
+          <div class="search-shell">
+            <label class="search-box" for="workspace-search">
+              <span id="workspace-search-label" class="sr-only">搜尋文件</span>
+              <input
+                id="workspace-search"
+                type="search"
+                placeholder="搜尋檔名、標題或內容"
+                autocomplete="off"
+              />
+            </label>
+            <aside
+              id="search-results"
+              class="search-results"
+              role="region"
+              aria-live="polite"
+              aria-atomic="false"
+              aria-labelledby="search-results-label"
+              hidden
+            >
+              <h2 id="search-results-label" class="sr-only">搜尋結果</h2>
+            </aside>
+          </div>
           <button id="lang-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="Switch to English">中</button>
           <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="切換主題"></button>
         </div>

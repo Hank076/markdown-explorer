@@ -1,4 +1,7 @@
 import { marked } from "./libs/marked/marked.esm.js";
+import { splitDocumentLink, resolveWorkspacePath } from "./app/workspace/path-utils.js";
+import { createAssetUrlRegistry, isWorkspaceRelativeHref, resolveAssetUrl } from "./app/workspace/assets.js";
+import { buildDocumentRecord, searchDocumentIndex } from "./app/workspace/document-index.js";
 
 // ── IndexedDB History Helpers ──────────────────────────────────────────────
 
@@ -121,11 +124,16 @@ const resizerEl = document.querySelector(".sidebar-resizer");
 const viewerEl = document.querySelector(".viewer");
 const workspaceEl = document.querySelector(".workspace");
 const rootEl = document.documentElement;
+const searchShellEl = document.querySelector(".search-shell");
 
 const langToggle = document.getElementById("lang-toggle");
 const recentPanelEl = document.getElementById("recent-panel");
 const recentPanelToggleBtn = document.getElementById("recent-panel-toggle");
 const recentPanelBodyEl = document.getElementById("recent-panel-body");
+const workspaceSearchInput = document.getElementById("workspace-search");
+const workspaceSearchLabel = document.getElementById("workspace-search-label");
+const searchResultsEl = document.getElementById("search-results");
+const searchResultsLabel = document.getElementById("search-results-label");
 
 const langStorageKey = "markdown-explorer-lang";
 const langTagMap = { "zh-TW": "zh-Hant-TW", en: "en" };
@@ -155,9 +163,6 @@ function t(key, vars = {}) {
   }
   return str;
 }
-
-const ICON_TOC_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>`;
-const ICON_TOC_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`;
 
 function applyLocale(lang) {
   document.documentElement.lang = langTagMap[lang] || lang;
@@ -227,6 +232,20 @@ function applyLocale(lang) {
   if (recentPanelLabelEl) recentPanelLabelEl.textContent = t("sidebar.recentPanel");
 
   if (workspaceEl) workspaceEl.dataset.dragHint = t("dragdrop.hint");
+  if (workspaceSearchInput) {
+    workspaceSearchInput.placeholder = t("search.placeholder");
+    workspaceSearchInput.setAttribute("aria-label", t("search.label"));
+  }
+
+  if (workspaceSearchLabel) {
+    workspaceSearchLabel.textContent = t("search.label");
+  }
+
+  if (searchResultsLabel) {
+    searchResultsLabel.textContent = t("search.results");
+  }
+
+  renderSearchResults(currentSearchResults);
 }
 
 async function setLang(lang) {
@@ -247,10 +266,16 @@ let activePath = null;
 let cachedHeadings = [];
 let tocRAFPending = false;
 let activeTreeNode = null;
+let pendingAnchor = "";
 const handleMap = new Map();
 const openFiles = new Map();
 const openOrder = [];
 const scrollPositions = new Map();
+const previewAssets = createAssetUrlRegistry();
+let searchQuery = "";
+let currentSearchResults = { files: [], headings: [], content: [] };
+let indexBuildToken = 0;
+const documentIndex = new Map();
 let idSeed = 0;
 
 function slugifyHeading(text) {
@@ -294,6 +319,8 @@ const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
 const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 const ICON_PANEL_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m16 15-3-3 3-3"/></svg>`;
 const ICON_PANEL_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m12 9 3 3-3 3"/></svg>`;
+const ICON_TOC_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>`;
+const ICON_TOC_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`;
 
 function getPreferredTheme() {
   const stored = localStorage.getItem(themeStorageKey);
@@ -396,6 +423,7 @@ function showToast(message) {
 
 function setPreviewVisible(isVisible) {
   viewerContainer.hidden = !isVisible;
+  previewEl.style.display = isVisible ? "block" : "none";
   emptyEl.style.display = isVisible ? "none" : "flex";
   if (!isVisible) renderRecentHistory();
 }
@@ -628,6 +656,246 @@ async function readDirectoryEntries(dirHandle) {
   return entries;
 }
 
+async function collectMarkdownPaths(dirHandle, prefix = "") {
+  const records = [];
+
+  for await (const [name, handle] of dirHandle.entries()) {
+    const path = `${prefix}${name}`;
+    if (handle.kind === "directory") {
+      records.push(...(await collectMarkdownPaths(handle, `${path}/`)));
+      continue;
+    }
+    if (name.toLowerCase().endsWith(".md")) {
+      records.push({ path, handle });
+    }
+  }
+
+  return records;
+}
+
+function runSearch(query) {
+  searchQuery = query;
+  currentSearchResults = searchDocumentIndex([...documentIndex.values()], query);
+  renderSearchResults(currentSearchResults);
+}
+
+async function buildWorkspaceIndex() {
+  if (!rootHandle) {
+    return;
+  }
+
+  const token = ++indexBuildToken;
+  documentIndex.clear();
+  setStatus(t("status.indexing"), true);
+  try {
+    const files = await collectMarkdownPaths(rootHandle);
+
+    for (const entry of files) {
+      if (token !== indexBuildToken) {
+        return;
+      }
+
+      const file = await entry.handle.getFile();
+      const content = await file.text();
+      documentIndex.set(entry.path, buildDocumentRecord({ path: entry.path, content }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  } catch (error) {
+    if (token === indexBuildToken) {
+      console.warn("[index] Failed to build workspace index:", error);
+    }
+  } finally {
+    if (token !== indexBuildToken) {
+      return;
+    }
+
+    setStatus(t("status.ready"));
+    runSearch(searchQuery);
+  }
+}
+
+function hideSearchResults() {
+  if (!searchResultsEl) {
+    return;
+  }
+
+  searchResultsEl.hidden = true;
+  searchResultsEl.replaceChildren();
+  if (searchResultsLabel) {
+    searchResultsEl.appendChild(searchResultsLabel);
+  }
+}
+
+function createSearchResultButton({ title, path, meta = "", onClick }) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "search-result-link";
+
+  const titleEl = document.createElement("span");
+  titleEl.className = "search-result-title";
+  titleEl.textContent = title;
+
+  const pathEl = document.createElement("span");
+  pathEl.className = "search-result-path";
+  pathEl.textContent = path;
+
+  button.append(titleEl, pathEl);
+
+  if (meta) {
+    const metaEl = document.createElement("span");
+    metaEl.className = "search-result-meta";
+    metaEl.textContent = meta;
+    button.appendChild(metaEl);
+  }
+
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+async function openSearchResult(path, anchor = "") {
+  if (!rootHandle) {
+    return;
+  }
+
+  const fileHandle = await findFileHandle(path);
+  if (!fileHandle) {
+    alert(t("alert.fileNotFound", { path }));
+    return;
+  }
+
+  pendingAnchor = anchor;
+  await openFile(fileHandle, path, null);
+  hideSearchResults();
+}
+
+function renderSearchGroup(title, items) {
+  const group = document.createElement("section");
+  group.className = "search-result-group";
+
+  const heading = document.createElement("h2");
+  heading.className = "search-result-group-title";
+  heading.textContent = title;
+  group.appendChild(heading);
+
+  if (items.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "search-result-empty";
+    empty.textContent = t("search.empty");
+    group.appendChild(empty);
+    return group;
+  }
+
+  const list = document.createElement("div");
+  list.className = "search-result-list";
+  items.forEach((item) => list.appendChild(item));
+  group.appendChild(list);
+  return group;
+}
+
+function renderSearchResults(results) {
+  if (!searchResultsEl) {
+    return;
+  }
+
+  if (!searchQuery.trim()) {
+    hideSearchResults();
+    return;
+  }
+
+  searchResultsEl.hidden = false;
+  searchResultsEl.replaceChildren();
+  if (searchResultsLabel) {
+    searchResultsEl.appendChild(searchResultsLabel);
+  }
+
+  const fileItems = results.files.map((record) =>
+    createSearchResultButton({
+      title: record.name,
+      path: record.path,
+      onClick: () => {
+        void openSearchResult(record.path);
+      },
+    })
+  );
+
+  const headingItems = results.headings.map(({ path, heading }) =>
+    createSearchResultButton({
+      title: heading.text,
+      path,
+      meta: `#${heading.id}`,
+      onClick: () => {
+        void openSearchResult(path, heading.id);
+      },
+    })
+  );
+
+  const contentItems = results.content.map(({ path, excerpt }) =>
+    createSearchResultButton({
+      title: path.split("/").at(-1) || path,
+      path,
+      meta: excerpt,
+      onClick: () => {
+        void openSearchResult(path);
+      },
+    })
+  );
+
+  const groups = [
+    fileItems.length > 0 ? renderSearchGroup(t("search.files"), fileItems) : null,
+    headingItems.length > 0 ? renderSearchGroup(t("search.headings"), headingItems) : null,
+    contentItems.length > 0 ? renderSearchGroup(t("search.content"), contentItems) : null,
+  ].filter(Boolean);
+
+  if (groups.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "search-result-empty";
+    empty.textContent = t("search.empty");
+    searchResultsEl.appendChild(empty);
+    return;
+  }
+
+  searchResultsEl.append(...groups);
+}
+
+function assignRenderedHeadingIds(record) {
+  if (!record) {
+    return;
+  }
+
+  const headingEls = [...previewEl.querySelectorAll("h1, h2, h3, h4")];
+  headingEls.forEach((headingEl, index) => {
+    const heading = record.headings[index];
+    if (!heading) {
+      return;
+    }
+    headingEl.id = heading.id;
+  });
+}
+
+function applyPendingAnchor() {
+  if (!pendingAnchor) {
+    return false;
+  }
+
+  const escapedAnchor =
+    typeof CSS !== "undefined" && typeof CSS.escape === "function"
+      ? CSS.escape(pendingAnchor)
+      : pendingAnchor.replace(/"/g, '\\"');
+  const target = previewEl.querySelector(`#${escapedAnchor}`);
+  if (!target) {
+    const missingAnchor = pendingAnchor;
+    pendingAnchor = "";
+    alert(t("alert.anchorNotFound", { path: `${activePath || ""}#${missingAnchor}` }));
+    return false;
+  }
+
+  pendingAnchor = "";
+  requestAnimationFrame(() => {
+    target.scrollIntoView({ block: "start" });
+  });
+  return true;
+}
+
 function createNodeButton(label, icon, depth = 0) {
   const button = document.createElement("button");
   button.className = "node";
@@ -766,6 +1034,7 @@ async function openFile(fileHandle, path, sourceButton) {
   const file = await fileHandle.getFile();
   const content = await file.text();
   openFiles.set(path, { name: file.name, handle: fileHandle, content, renderedHtml: null });
+  documentIndex.set(path, buildDocumentRecord({ path, content }));
   openOrder.push(path);
   if (sourceButton) sourceButton.classList.add("active");
   setActiveFile(path);
@@ -773,17 +1042,6 @@ async function openFile(fileHandle, path, sourceButton) {
   if (rootHandle) {
     await saveHistory(rootHandle.name, rootHandle, [{ name: file.name, path }]);
   }
-}
-
-function resolvePath(path) {
-  const parts = path.split("/");
-  const result = [];
-  for (const part of parts) {
-    if (part === ".") continue;
-    if (part === "..") result.pop();
-    else if (part !== "") result.push(part);
-  }
-  return result.join("/");
 }
 
 async function findFileHandle(path) {
@@ -798,20 +1056,15 @@ async function findFileHandle(path) {
 
 async function navigateToInternalLink(href) {
   if (!rootHandle) return;
-  const pathPart = href.split("#")[0];
-  if (!pathPart) return;
-  const baseDir = activePath && activePath.includes("/") ? activePath.substring(0, activePath.lastIndexOf("/") + 1) : "";
-  const relativePath = resolvePath(baseDir + pathPart);
-  let fileHandle = await findFileHandle(relativePath);
-  if (fileHandle) { await openFile(fileHandle, relativePath, null); return; }
-  if (baseDir) {
-    const rootPath = resolvePath(pathPart);
-    if (rootPath !== relativePath) {
-      fileHandle = await findFileHandle(rootPath);
-      if (fileHandle) { await openFile(fileHandle, rootPath, null); return; }
-    }
+  const { path, hash } = splitDocumentLink(href);
+  const resolvedPath = resolveWorkspacePath(activePath ?? "", path);
+  const fileHandle = await findFileHandle(resolvedPath);
+  if (fileHandle) {
+    pendingAnchor = hash;
+    await openFile(fileHandle, resolvedPath, null);
+  } else {
+    showToast(t("alert.fileNotFound", { path: resolvedPath }));
   }
-  showToast(t("alert.fileNotFound", { path: relativePath }));
 }
 
 async function renderPreview() {
@@ -819,12 +1072,44 @@ async function renderPreview() {
   const token = ++renderPreviewToken;
 
   if (!activePath) { setPreviewVisible(false); return; }
+  previewAssets.clear();
   const file = openFiles.get(activePath);
   if (!file) { setPreviewVisible(false); return; }
   if (!file.renderedHtml) {
     file.renderedHtml = marked.parse(file.content);
   }
   previewEl.innerHTML = file.renderedHtml;
+  assignRenderedHeadingIds(documentIndex.get(activePath));
+
+  const previewPath = activePath;
+  previewEl.querySelectorAll("img").forEach((image) => {
+    const src = image.getAttribute("src") || "";
+    if (!isWorkspaceRelativeHref(src)) {
+      return;
+    }
+
+    void resolveAssetUrl({
+      href: src,
+      activePath: previewPath,
+      rootHandle,
+      registry: previewAssets,
+    })
+      .then(({ url }) => {
+        if (activePath !== previewPath) {
+          return;
+        }
+        image.src = url;
+      })
+      .catch(() => {
+        if (activePath !== previewPath) {
+          return;
+        }
+        const fallback = document.createElement("div");
+        fallback.className = "preview-image-missing";
+        fallback.textContent = t("alert.assetNotFound", { path: src });
+        image.replaceWith(fallback);
+      });
+  });
   const codeBlocks = previewEl.querySelectorAll("pre code");
   codeBlocks.forEach((block) => {
     const language = block.className.match(/language-([\w-]+)/)?.[1];
@@ -839,7 +1124,9 @@ async function renderPreview() {
 
   generateTOC();
   setPreviewVisible(true);
-  viewerEl.scrollTop = scrollPositions.get(currentPath) ?? 0;
+  if (!applyPendingAnchor()) {
+    viewerEl.scrollTop = scrollPositions.get(currentPath) ?? 0;
+  }
 
   const highlightTargets = previewEl.querySelectorAll("pre code");
   if (highlightTargets.length > 0) {
@@ -875,36 +1162,95 @@ async function renderPreview() {
   }
 }
 
-if (viewerEl) viewerEl.addEventListener("scroll", updateTOCActive, { passive: true });
-if (previewEl) {
-  previewEl.addEventListener("click", (e) => {
-    const internalLink = e.target.closest("a.internal-link");
-    if (internalLink && previewEl.contains(internalLink)) {
-      e.preventDefault();
-      navigateToInternalLink(internalLink.dataset.href);
-      return;
-    }
+previewEl.addEventListener("click", async (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const link = target?.closest("a");
+  if (!link) {
+    return;
+  }
 
-    const anchorLink = e.target.closest("a.anchor-link");
-    if (anchorLink && previewEl.contains(anchorLink)) {
-      e.preventDefault();
-      const id = anchorLink.getAttribute("href")?.slice(1);
-      if (!id) return;
-      const target = previewEl.querySelector(`#${CSS.escape(id)}`);
-      if (target) target.scrollIntoView({ behavior: "smooth" });
+  const href = link.getAttribute("href") || "";
+  if (!href) {
+    return;
+  }
+
+  if (href.startsWith("#")) {
+    event.preventDefault();
+    pendingAnchor = href.slice(1);
+    applyPendingAnchor();
+    return;
+  }
+
+  if (!isWorkspaceRelativeHref(href)) {
+    return;
+  }
+
+  event.preventDefault();
+  const { path } = splitDocumentLink(href);
+
+  if (path.toLowerCase().endsWith(".md")) {
+    await navigateToInternalLink(href);
+    return;
+  }
+
+  let popup = null;
+  try {
+    popup = window.open("about:blank", "_blank");
+    if (popup) {
+      popup.opener = null;
     }
-  });
-}
+    const asset = await resolveAssetUrl({
+      href: path,
+      activePath,
+      rootHandle,
+      registry: previewAssets,
+    });
+    if (popup) {
+      popup.location.replace(asset.url);
+      popup.focus();
+    } else {
+      window.open(asset.url, "_blank", "noopener");
+    }
+  } catch {
+    if (popup && !popup.closed) {
+      popup.close();
+    }
+    const message = t("alert.assetNotFound", { path: href }) || href;
+    if (typeof globalThis.showToast === "function") {
+      globalThis.showToast(message);
+    } else {
+      alert(message);
+    }
+  }
+});
 
 openFolderButton.addEventListener("click", async () => {
   if (!window.showDirectoryPicker) { setStatus(t("status.unsupported")); showToast(t("status.unsupported")); return; }
   try {
     rootHandle = await window.showDirectoryPicker();
-    openFiles.clear(); openOrder.length = 0; activePath = null;
+    openFiles.clear();
+    openOrder.length = 0;
+    activePath = null;
+    cachedHeadings = [];
+    tocRAFPending = false;
+    activeTreeNode = null;
+    pendingAnchor = "";
+    searchQuery = "";
+    currentSearchResults = { files: [], headings: [], content: [] };
+    documentIndex.clear();
+    indexBuildToken += 1;
+    previewAssets.clear();
+    if (workspaceSearchInput) {
+      workspaceSearchInput.value = "";
+    }
+    hideSearchResults();
     setPreviewVisible(false);
     await renderTree();
     await saveHistory(rootHandle.name, rootHandle);
-  } catch { setStatus(t("status.cancelled")); }
+    void buildWorkspaceIndex();
+  } catch (error) {
+    setStatus(t("status.cancelled"));
+  }
 });
 
 if (themeToggle) {
@@ -1009,6 +1355,36 @@ if (workspaceEl) {
     await openFile(handle, handle.name, null);
   });
 }
+
+if (workspaceSearchInput) {
+  workspaceSearchInput.addEventListener("input", (event) => {
+    const nextQuery = event.target instanceof HTMLInputElement ? event.target.value : "";
+    runSearch(nextQuery);
+  });
+}
+
+if (tocToggleBtn && tocEl) {
+  tocToggleBtn.addEventListener("click", () => {
+    setTOCCollapsed(!tocEl.classList.contains("collapsed"));
+  });
+}
+
+if (viewerEl) {
+  viewerEl.addEventListener("scroll", updateTOCActive, { passive: true });
+}
+
+document.addEventListener("pointerdown", (event) => {
+  if (!searchShellEl || !searchResultsEl || searchResultsEl.hidden) {
+    return;
+  }
+
+  const target = event.target instanceof Node ? event.target : null;
+  if (target && searchShellEl.contains(target)) {
+    return;
+  }
+
+  hideSearchResults();
+});
 
 async function init() {
   await loadLocale(currentLang);

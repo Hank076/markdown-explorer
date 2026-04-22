@@ -4,6 +4,7 @@
   "description": "A browser-based Markdown viewer with folder tree, multi-tab preview, Mermaid diagrams, and syntax highlighting — no build step required.",
   "author": "Hank",
   "license": "MIT",
+  "type": "module",
   "keywords": [
     "markdown",
     "preview",
@@ -14,7 +15,8 @@
     "no-build"
   ],
   "scripts": {
-    "start": "npx serve ."
+    "start": "npx serve .",
+    "test": "node --test tests/workspace/*.test.mjs"
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
