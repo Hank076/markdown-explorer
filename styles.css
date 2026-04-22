@@ -275,15 +275,24 @@ body {
   gap: var(--space-1);
 }
 
-.tree .node {
+.tree-entry {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tree .node {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
+  align-items: start;
+  min-width: 0;
+  padding: 6px var(--space-2);
   border-radius: 10px;
   color: var(--color-text-primary);
   background: transparent;
   border: 1px solid transparent;
+  line-height: 1.5;
 }
 
 .tree .node:hover {
@@ -291,10 +300,16 @@ body {
   border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 
+.tree .node[data-kind="directory"][data-expanded="true"] {
+  background: color-mix(in srgb, var(--color-bg-floating) 76%, transparent);
+  border-color: color-mix(in srgb, var(--color-border-strong) 26%, transparent);
+}
+
 .tree .node.active {
   background: color-mix(in srgb, var(--color-primary) 18%, transparent);
   border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
   color: var(--color-text-primary);
+  box-shadow: inset 2px 0 0 var(--color-primary);
 }
 
 .tree .node .icon {
@@ -305,12 +320,29 @@ body {
   font-size: 14px;
   line-height: 1;
   width: 16px;
+  margin-top: 4px;
+}
+
+.tree .node .label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree .node.active .label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .tree .children {
-  margin-left: var(--space-4); /* was 18px — 非 4px 倍數，改為 16px */
-  border-left: 1px dashed var(--color-border-subtle);
-  padding-left: var(--space-2);
+  margin-left: 14px;
+  border-left: 1px solid color-mix(in srgb, var(--color-border-strong) 22%, transparent);
+  padding-left: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);

@@ -900,7 +900,8 @@ function createNodeButton(label, icon, depth = 0) {
   const button = document.createElement("button");
   button.className = "node";
   button.style.paddingLeft = `${8 + depth * 12}px`;
-  button.innerHTML = `<span class="icon">${icon}</span><span>${label}</span>`;
+  button.title = label;
+  button.innerHTML = `<span class="icon">${icon}</span><span class="label">${label}</span>`;
   return button;
 }
 
@@ -911,6 +912,7 @@ function renderTreeNode(parentEl, entry, depth, parentPath) {
 
   if (entry.kind === "directory") {
     const wrapper = document.createElement("div");
+    wrapper.className = "tree-entry";
     const button = createNodeButton(entry.name, "📁", depth);
     button.dataset.nodeId = nodeId;
     button.dataset.path = currentPath;
