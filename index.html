@@ -46,7 +46,17 @@
           <button id="lang-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="Switch to English">中</button>
           <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="切換主題"></button>
         </div>
-        <aside id="search-results" class="search-results" hidden></aside>
+        <aside
+          id="search-results"
+          class="search-results"
+          role="region"
+          aria-live="polite"
+          aria-atomic="false"
+          aria-labelledby="search-results-label"
+          hidden
+        >
+          <h2 id="search-results-label" class="sr-only">搜尋結果</h2>
+        </aside>
         <section class="viewer" aria-live="polite">
           <div id="empty" class="empty-state">
             <div class="empty-card">

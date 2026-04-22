@@ -21,6 +21,7 @@ const langToggle = document.getElementById("lang-toggle");
 const workspaceSearchInput = document.getElementById("workspace-search");
 const workspaceSearchLabel = document.getElementById("workspace-search-label");
 const searchResultsEl = document.getElementById("search-results");
+const searchResultsLabel = document.getElementById("search-results-label");
 
 const langStorageKey = "markdown-explorer-lang";
 // BCP 47 tag map: locale key → precise html lang attribute value
@@ -108,6 +109,10 @@ function applyLocale(lang) {
 
   if (workspaceSearchLabel) {
     workspaceSearchLabel.textContent = t("search.label");
+  }
+
+  if (searchResultsLabel) {
+    searchResultsLabel.textContent = t("search.results");
   }
 
   if (!rootHandle) {
@@ -300,7 +305,10 @@ function hideSearchResults() {
   }
 
   searchResultsEl.hidden = true;
-  searchResultsEl.innerHTML = "";
+  searchResultsEl.replaceChildren();
+  if (searchResultsLabel) {
+    searchResultsEl.appendChild(searchResultsLabel);
+  }
 }
 
 function createSearchResultButton({ title, path, meta = "", onClick }) {
@@ -380,7 +388,10 @@ function renderSearchResults(results) {
   }
 
   searchResultsEl.hidden = false;
-  searchResultsEl.innerHTML = "";
+  searchResultsEl.replaceChildren();
+  if (searchResultsLabel) {
+    searchResultsEl.appendChild(searchResultsLabel);
+  }
 
   const fileItems = results.files.map((record) =>
     createSearchResultButton({
@@ -414,11 +425,60 @@ function renderSearchResults(results) {
     })
   );
 
-  searchResultsEl.append(
-    renderSearchGroup(t("search.files"), fileItems),
-    renderSearchGroup(t("search.headings"), headingItems),
-    renderSearchGroup(t("search.content"), contentItems)
-  );
+  const groups = [
+    fileItems.length > 0 ? renderSearchGroup(t("search.files"), fileItems) : null,
+    headingItems.length > 0 ? renderSearchGroup(t("search.headings"), headingItems) : null,
+    contentItems.length > 0 ? renderSearchGroup(t("search.content"), contentItems) : null,
+  ].filter(Boolean);
+
+  if (groups.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "search-result-empty";
+    empty.textContent = t("search.empty");
+    searchResultsEl.appendChild(empty);
+    return;
+  }
+
+  searchResultsEl.append(...groups);
+}
+
+function assignRenderedHeadingIds(record) {
+  if (!record) {
+    return;
+  }
+
+  const headingEls = [...previewEl.querySelectorAll("h1, h2, h3, h4")];
+  headingEls.forEach((headingEl, index) => {
+    const heading = record.headings[index];
+    if (!heading) {
+      return;
+    }
+    headingEl.id = heading.id;
+  });
+}
+
+function applyPendingAnchor() {
+  if (!pendingAnchor) {
+    return false;
+  }
+
+  const escapedAnchor =
+    typeof CSS !== "undefined" && typeof CSS.escape === "function"
+      ? CSS.escape(pendingAnchor)
+      : pendingAnchor.replace(/"/g, '\\"');
+  const target = previewEl.querySelector(`#${escapedAnchor}`);
+  if (!target) {
+    const missingAnchor = pendingAnchor;
+    pendingAnchor = "";
+    alert(t("alert.anchorNotFound", { path: `${activePath || ""}#${missingAnchor}` }));
+    return false;
+  }
+
+  pendingAnchor = "";
+  requestAnimationFrame(() => {
+    target.scrollIntoView({ block: "start" });
+  });
+  return true;
 }
 
 function createNodeButton(label, icon, depth = 0) {
@@ -608,6 +668,7 @@ function renderPreview() {
 
   const html = marked.parse(file.content);
   previewEl.innerHTML = html;
+  assignRenderedHeadingIds(documentIndex.get(activePath));
 
   const previewPath = activePath;
   previewEl.querySelectorAll("img").forEach((image) => {
@@ -680,7 +741,9 @@ function renderPreview() {
   }
 
   setPreviewVisible(true);
-  viewerEl.scrollTop = scrollPositions.get(activePath) ?? 0;
+  if (!applyPendingAnchor()) {
+    viewerEl.scrollTop = scrollPositions.get(activePath) ?? 0;
+  }
 }
 
 previewEl.addEventListener("click", async (event) => {
@@ -698,9 +761,7 @@ previewEl.addEventListener("click", async (event) => {
   if (href.startsWith("#")) {
     event.preventDefault();
     pendingAnchor = href.slice(1);
-    if (typeof globalThis.applyPendingAnchor === "function") {
-      globalThis.applyPendingAnchor();
-    }
+    applyPendingAnchor();
     return;
   }
 

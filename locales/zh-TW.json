@@ -30,6 +30,7 @@
   "alert.anchorNotFound": "找不到對應段落：{path}",
   "search.placeholder": "搜尋檔名、標題或內容",
   "search.label": "搜尋文件",
+  "search.results": "搜尋結果",
   "search.files": "檔案",
   "search.headings": "標題",
   "search.content": "內容",

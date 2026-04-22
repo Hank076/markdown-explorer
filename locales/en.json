@@ -30,6 +30,7 @@
   "alert.anchorNotFound": "Heading not found: {path}",
   "search.placeholder": "Search file names, headings, or content",
   "search.label": "Search documents",
+  "search.results": "Search results",
   "search.files": "Files",
   "search.headings": "Headings",
   "search.content": "Content",
