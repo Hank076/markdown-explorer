@@ -383,9 +383,6 @@ async function navigateToInternalLink(href) {
   const fileHandle = await findFileHandle(resolvedPath);
   if (fileHandle) {
     pendingAnchor = hash;
-    if (hash && typeof globalThis.applyPendingAnchor === "function") {
-      globalThis.applyPendingAnchor();
-    }
     await openFile(fileHandle, resolvedPath, null);
   } else {
     alert(t("alert.fileNotFound", { path: resolvedPath }));
@@ -512,15 +509,28 @@ previewEl.addEventListener("click", async (event) => {
     return;
   }
 
+  let popup = null;
   try {
+    popup = window.open("about:blank", "_blank");
+    if (popup) {
+      popup.opener = null;
+    }
     const asset = await resolveAssetUrl({
       href: path,
       activePath,
       rootHandle,
       registry: previewAssets,
     });
-    window.open(asset.url, "_blank", "noopener");
+    if (popup) {
+      popup.location.replace(asset.url);
+      popup.focus();
+    } else {
+      window.open(asset.url, "_blank", "noopener");
+    }
   } catch {
+    if (popup && !popup.closed) {
+      popup.close();
+    }
     const message = t("alert.assetNotFound", { path: href }) || href;
     if (typeof globalThis.showToast === "function") {
       globalThis.showToast(message);

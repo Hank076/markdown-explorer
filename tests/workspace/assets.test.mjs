@@ -10,6 +10,9 @@ test("isWorkspaceRelativeHref returns true for local relative paths", () => {
 test("isWorkspaceRelativeHref rejects external and anchor-only links", () => {
   assert.equal(isWorkspaceRelativeHref("https://example.com"), false);
   assert.equal(isWorkspaceRelativeHref("#install"), false);
+  assert.equal(isWorkspaceRelativeHref("data:image/png;base64,AAA"), false);
+  assert.equal(isWorkspaceRelativeHref("blob:https://example.com/uuid"), false);
+  assert.equal(isWorkspaceRelativeHref("tel:+886123456789"), false);
 });
 
 test("createAssetUrlRegistry revokes previous URLs", () => {

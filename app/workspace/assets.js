@@ -1,7 +1,7 @@
 import { resolveWorkspacePath } from "./path-utils.js";
 
 export function isWorkspaceRelativeHref(href = "") {
-  return Boolean(href) && !/^(https?:\/\/|\/\/|mailto:|#|file:\/\/)/i.test(href);
+  return Boolean(href) && !/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(href);
 }
 
 export function createAssetUrlRegistry({
