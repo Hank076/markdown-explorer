@@ -282,10 +282,13 @@ marked.use({
   },
 });
 
-const mermaidApi = window.mermaid;
-const prismApi = window.Prism;
+let mermaidApi = window.mermaid ?? null;
+let prismApi = window.Prism ?? null;
 const themeStorageKey = "markdown-explorer-theme";
 const sidebarWidthStorageKey = "markdown-explorer-sidebar-width";
+let mermaidLoadPromise = null;
+let prismLoadPromise = null;
+let renderPreviewToken = 0;
 
 const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
@@ -308,6 +311,55 @@ function applyTheme(theme) {
 }
 
 function getMermaidTheme() { return rootEl.getAttribute("data-theme") === "dark" ? "dark" : "neutral"; }
+
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-dynamic-src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "true") {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.dataset.dynamicSrc = src;
+    script.addEventListener("load", () => {
+      script.dataset.loaded = "true";
+      resolve();
+    }, { once: true });
+    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+    document.head.appendChild(script);
+  });
+}
+
+async function ensurePrismLoaded() {
+  if (prismApi) return prismApi;
+  if (!prismLoadPromise) {
+    prismLoadPromise = loadScriptOnce("libs/prism/prism.js").then(() => {
+      prismApi = window.Prism ?? null;
+      return prismApi;
+    });
+  }
+  return prismLoadPromise;
+}
+
+async function ensureMermaidLoaded() {
+  if (mermaidApi) return mermaidApi;
+  if (!mermaidLoadPromise) {
+    mermaidLoadPromise = loadScriptOnce("libs/mermaid/mermaid.min.js").then(() => {
+      mermaidApi = window.mermaid ?? null;
+      initMermaid();
+      return mermaidApi;
+    });
+  }
+  return mermaidLoadPromise;
+}
 
 function initMermaid() {
   if (mermaidApi) {
@@ -694,6 +746,7 @@ function closeAllFiles() {
   scrollPositions.clear();
   activePath = null;
   activeTreeNode = null;
+  renderPreviewToken += 1;
   renderTabs();
   renderPreview();
   setStatus(t("status.ready"));
@@ -761,7 +814,10 @@ async function navigateToInternalLink(href) {
   showToast(t("alert.fileNotFound", { path: relativePath }));
 }
 
-function renderPreview() {
+async function renderPreview() {
+  const currentPath = activePath;
+  const token = ++renderPreviewToken;
+
   if (!activePath) { setPreviewVisible(false); return; }
   const file = openFiles.get(activePath);
   if (!file) { setPreviewVisible(false); return; }
@@ -780,39 +836,65 @@ function renderPreview() {
       if (pre) pre.replaceWith(container);
     }
   });
-  if (prismApi) {
-    const doHighlight = () => prismApi.highlightAllUnder(previewEl);
-    if ('requestIdleCallback' in window) requestIdleCallback(doHighlight);
-    else setTimeout(doHighlight, 0);
+
+  generateTOC();
+  setPreviewVisible(true);
+  viewerEl.scrollTop = scrollPositions.get(currentPath) ?? 0;
+
+  const highlightTargets = previewEl.querySelectorAll("pre code");
+  if (highlightTargets.length > 0) {
+    try {
+      const prism = await ensurePrismLoaded();
+      if (token === renderPreviewToken && activePath === currentPath && prism) {
+        const doHighlight = () => prism.highlightAllUnder(previewEl);
+        if ("requestIdleCallback" in window) requestIdleCallback(doHighlight);
+        else setTimeout(doHighlight, 0);
+      }
+    } catch (err) {
+      console.warn("[preview] Failed to load Prism:", err);
+    }
   }
+
   const mermaidNodes = previewEl.querySelectorAll(".mermaid");
-  if (mermaidNodes.length > 0 && mermaidApi) {
-    mermaidApi.run({ nodes: mermaidNodes }).catch(() => {
+  if (mermaidNodes.length > 0) {
+    try {
+      const mermaid = await ensureMermaidLoaded();
+      if (token === renderPreviewToken && activePath === currentPath && mermaid) {
+        initMermaid();
+        await mermaid.run({ nodes: mermaidNodes });
+      }
+    } catch (err) {
+      console.warn("[preview] Failed to render Mermaid:", err);
       mermaidNodes.forEach((node) => {
         const pre = document.createElement("pre");
         pre.textContent = node.textContent;
         node.innerHTML = "";
         node.appendChild(pre);
       });
-    });
+    }
   }
-  previewEl.querySelectorAll("a.internal-link").forEach((link) => {
-    link.addEventListener("click", (e) => { e.preventDefault(); navigateToInternalLink(link.dataset.href); });
-  });
-  previewEl.querySelectorAll("a.anchor-link").forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      const id = link.getAttribute("href").slice(1);
-      const target = previewEl.querySelector(`#${CSS.escape(id)}`);
-      if (target) target.scrollIntoView({ behavior: "smooth" });
-    });
-  });
-  generateTOC();
-  setPreviewVisible(true);
-  viewerEl.scrollTop = scrollPositions.get(activePath) ?? 0;
 }
 
 if (viewerEl) viewerEl.addEventListener("scroll", updateTOCActive, { passive: true });
+if (previewEl) {
+  previewEl.addEventListener("click", (e) => {
+    const internalLink = e.target.closest("a.internal-link");
+    if (internalLink && previewEl.contains(internalLink)) {
+      e.preventDefault();
+      navigateToInternalLink(internalLink.dataset.href);
+      return;
+    }
+
+    const anchorLink = e.target.closest("a.anchor-link");
+    if (anchorLink && previewEl.contains(anchorLink)) {
+      e.preventDefault();
+      const id = anchorLink.getAttribute("href")?.slice(1);
+      if (!id) return;
+      const target = previewEl.querySelector(`#${CSS.escape(id)}`);
+      if (target) target.scrollIntoView({ behavior: "smooth" });
+    }
+  });
+}
 
 openFolderButton.addEventListener("click", async () => {
   if (!window.showDirectoryPicker) { setStatus(t("status.unsupported")); showToast(t("status.unsupported")); return; }
@@ -831,8 +913,9 @@ if (themeToggle) {
     localStorage.setItem(themeStorageKey, nextTheme);
     if (activePath) scrollPositions.set(activePath, viewerEl.scrollTop);
     applyTheme(nextTheme);
-    initMermaid();
-    renderPreview();
+    if (previewEl.querySelector(".mermaid")) {
+      renderPreview();
+    }
   });
 }
 
