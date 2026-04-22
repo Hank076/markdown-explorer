@@ -1,4 +1,6 @@
 import { marked } from "./libs/marked/marked.esm.js";
+import { splitDocumentLink, resolveWorkspacePath } from "./app/workspace/path-utils.js";
+import { createAssetUrlRegistry, isWorkspaceRelativeHref, resolveAssetUrl } from "./app/workspace/assets.js";
 
 const openFolderButton = document.getElementById("open-folder");
 const themeToggle = document.getElementById("theme-toggle");
@@ -118,10 +120,12 @@ async function setLang(lang) {
 
 let rootHandle = null;
 let activePath = null;
+let pendingAnchor = "";
 const handleMap = new Map();
 const openFiles = new Map();
 const openOrder = [];
 const scrollPositions = new Map();
+const previewAssets = createAssetUrlRegistry();
 let idSeed = 0;
 
 marked.use({
@@ -349,27 +353,13 @@ async function openFile(fileHandle, path, sourceButton) {
   setStatus(t("status.readingFile", { path }), true);
   const file = await fileHandle.getFile();
   const content = await file.text();
-  openFiles.set(path, { name: file.name, handle: fileHandle, content });
+  openFiles.set(path, { name: file.name, handle: fileHandle, content, headings: [] });
   openOrder.push(path);
   if (sourceButton) {
     sourceButton.classList.add("active");
   }
   setActiveFile(path);
   setStatus(t("status.opened", { path }));
-}
-
-function resolvePath(path) {
-  const parts = path.split("/");
-  const result = [];
-  for (const part of parts) {
-    if (part === ".") continue;
-    if (part === "..") {
-      result.pop();
-    } else if (part !== "") {
-      result.push(part);
-    }
-  }
-  return result.join("/");
 }
 
 async function findFileHandle(path) {
@@ -388,13 +378,14 @@ async function findFileHandle(path) {
 
 async function navigateToInternalLink(href) {
   if (!rootHandle) return;
-  const baseDir =
-    activePath && activePath.includes("/")
-      ? activePath.substring(0, activePath.lastIndexOf("/") + 1)
-      : "";
-  const resolvedPath = resolvePath(baseDir + href);
+  const { path, hash } = splitDocumentLink(href);
+  const resolvedPath = resolveWorkspacePath(activePath ?? "", path);
   const fileHandle = await findFileHandle(resolvedPath);
   if (fileHandle) {
+    pendingAnchor = hash;
+    if (hash && typeof globalThis.applyPendingAnchor === "function") {
+      globalThis.applyPendingAnchor();
+    }
     await openFile(fileHandle, resolvedPath, null);
   } else {
     alert(t("alert.fileNotFound", { path: resolvedPath }));
@@ -402,6 +393,7 @@ async function navigateToInternalLink(href) {
 }
 
 function renderPreview() {
+  previewAssets.clear();
   if (!activePath) {
     setPreviewVisible(false);
     return;
@@ -414,6 +406,34 @@ function renderPreview() {
 
   const html = marked.parse(file.content);
   previewEl.innerHTML = html;
+
+  const previewPath = activePath;
+  previewEl.querySelectorAll("img").forEach((image) => {
+    const src = image.getAttribute("src") || "";
+    if (!isWorkspaceRelativeHref(src)) {
+      return;
+    }
+
+    void resolveAssetUrl({
+      href: src,
+      activePath: previewPath,
+      rootHandle,
+      registry: previewAssets,
+    })
+      .then(({ url }) => {
+        if (activePath !== previewPath) {
+          return;
+        }
+        image.src = url;
+      })
+      .catch(() => {
+        if (activePath !== previewPath) {
+          return;
+        }
+        image.classList.add("preview-image-missing");
+        image.dataset.missingSrc = src;
+      });
+  });
 
   const codeBlocks = previewEl.querySelectorAll("pre code");
   codeBlocks.forEach((block) => {
@@ -455,16 +475,60 @@ function renderPreview() {
     });
   }
 
-  previewEl.querySelectorAll("a.internal-link").forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      navigateToInternalLink(link.dataset.href);
-    });
-  });
-
   setPreviewVisible(true);
   viewerEl.scrollTop = scrollPositions.get(activePath) ?? 0;
 }
+
+previewEl.addEventListener("click", async (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const link = target?.closest("a");
+  if (!link) {
+    return;
+  }
+
+  const href = link.getAttribute("href") || "";
+  if (!href) {
+    return;
+  }
+
+  if (href.startsWith("#")) {
+    event.preventDefault();
+    pendingAnchor = href.slice(1);
+    if (typeof globalThis.applyPendingAnchor === "function") {
+      globalThis.applyPendingAnchor();
+    }
+    return;
+  }
+
+  if (!isWorkspaceRelativeHref(href)) {
+    return;
+  }
+
+  event.preventDefault();
+  const { path } = splitDocumentLink(href);
+
+  if (path.toLowerCase().endsWith(".md")) {
+    await navigateToInternalLink(href);
+    return;
+  }
+
+  try {
+    const asset = await resolveAssetUrl({
+      href: path,
+      activePath,
+      rootHandle,
+      registry: previewAssets,
+    });
+    window.open(asset.url, "_blank", "noopener");
+  } catch {
+    const message = t("alert.assetNotFound", { path: href }) || href;
+    if (typeof globalThis.showToast === "function") {
+      globalThis.showToast(message);
+    } else {
+      alert(message);
+    }
+  }
+});
 
 openFolderButton.addEventListener("click", async () => {
   if (!window.showDirectoryPicker) {
@@ -476,6 +540,8 @@ openFolderButton.addEventListener("click", async () => {
     openFiles.clear();
     openOrder.length = 0;
     activePath = null;
+    pendingAnchor = "";
+    previewAssets.clear();
     setPreviewVisible(false);
     await renderTree();
   } catch (error) {
