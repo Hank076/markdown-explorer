@@ -126,7 +126,11 @@ const workspaceEl = document.querySelector(".workspace");
 const rootEl = document.documentElement;
 const searchShellEl = document.querySelector(".search-shell");
 
+const settingsToggle = document.getElementById("settings-toggle");
 const langToggle = document.getElementById("lang-toggle");
+const mathRendererSelect = document.getElementById("math-renderer");
+const settingsDialog = document.getElementById("settings-dialog");
+const settingsCloseButton = document.getElementById("settings-close");
 const recentPanelEl = document.getElementById("recent-panel");
 const recentPanelToggleBtn = document.getElementById("recent-panel-toggle");
 const recentPanelBodyEl = document.getElementById("recent-panel-body");
@@ -134,11 +138,23 @@ const workspaceSearchInput = document.getElementById("workspace-search");
 const workspaceSearchLabel = document.getElementById("workspace-search-label");
 const searchResultsEl = document.getElementById("search-results");
 const searchResultsLabel = document.getElementById("search-results-label");
+const mathRendererLabelEl = document.getElementById("math-renderer-label");
+const settingsTitleEl = document.getElementById("settings-title");
+const settingsDescriptionEl = document.getElementById("settings-description");
+const settingsRenderingTitleEl = document.getElementById("settings-rendering-title");
+const settingsRenderingDescriptionEl = document.getElementById("settings-rendering-description");
 
 const langStorageKey = "markdown-explorer-lang";
+const mathRendererStorageKey = "markdown-explorer-math-renderer";
 const langTagMap = { "zh-TW": "zh-Hant-TW", en: "en" };
+const MATH_RENDERERS = Object.freeze({ katex: "katex", mathjax: "mathjax" });
 let currentLang = localStorage.getItem(langStorageKey) || "zh-TW";
+let currentMathRenderer = normalizeMathRenderer(localStorage.getItem(mathRendererStorageKey));
 let translations = {};
+
+function normalizeMathRenderer(value) {
+  return value === MATH_RENDERERS.mathjax ? MATH_RENDERERS.mathjax : MATH_RENDERERS.katex;
+}
 
 async function loadLocale(lang) {
   try {
@@ -213,6 +229,16 @@ function applyLocale(lang) {
     themeToggle.setAttribute("aria-label", currentTheme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark"));
   }
 
+  if (settingsToggle) {
+    settingsToggle.setAttribute("aria-label", t("aria.settingsOpen"));
+    settingsToggle.innerHTML = ICON_SETTINGS;
+  }
+
+  if (settingsCloseButton) {
+    settingsCloseButton.setAttribute("aria-label", t("aria.settingsClose"));
+    settingsCloseButton.innerHTML = "×";
+  }
+
   if (langToggle) {
     langToggle.textContent = t("lang.current");
     langToggle.setAttribute("aria-label", t("lang.switchLabel"));
@@ -245,6 +271,35 @@ function applyLocale(lang) {
     searchResultsLabel.textContent = t("search.results");
   }
 
+  if (mathRendererLabelEl) {
+    mathRendererLabelEl.textContent = t("math.rendererLabel");
+  }
+
+  if (settingsTitleEl) {
+    settingsTitleEl.textContent = t("settings.title");
+  }
+
+  if (settingsDescriptionEl) {
+    settingsDescriptionEl.textContent = t("settings.description");
+  }
+
+  if (settingsRenderingTitleEl) {
+    settingsRenderingTitleEl.textContent = t("settings.renderingTitle");
+  }
+
+  if (settingsRenderingDescriptionEl) {
+    settingsRenderingDescriptionEl.textContent = t("settings.renderingDescription");
+  }
+
+  if (mathRendererSelect) {
+    mathRendererSelect.setAttribute("aria-label", t("math.rendererAria"));
+    const katexOption = mathRendererSelect.querySelector('option[value="katex"]');
+    const mathJaxOption = mathRendererSelect.querySelector('option[value="mathjax"]');
+    if (katexOption) katexOption.textContent = t("math.katex");
+    if (mathJaxOption) mathJaxOption.textContent = t("math.mathjax");
+    mathRendererSelect.value = currentMathRenderer;
+  }
+
   renderSearchResults(currentSearchResults);
 }
 
@@ -272,6 +327,9 @@ const openFiles = new Map();
 const openOrder = [];
 const scrollPositions = new Map();
 const previewAssets = createAssetUrlRegistry();
+let draggedTabPath = null;
+let dragTargetTabPath = null;
+let dragTargetPosition = null;
 let searchQuery = "";
 let currentSearchResults = { files: [], headings: [], content: [] };
 let indexBuildToken = 0;
@@ -309,14 +367,21 @@ marked.use({
 
 let mermaidApi = window.mermaid ?? null;
 let prismApi = window.Prism ?? null;
+let katexApi = window.katex ?? null;
+let katexAutoRender = window.renderMathInElement ?? null;
+let mathJaxApi = window.MathJax?.typesetPromise ? window.MathJax : null;
 const themeStorageKey = "markdown-explorer-theme";
 const sidebarWidthStorageKey = "markdown-explorer-sidebar-width";
 let mermaidLoadPromise = null;
 let prismLoadPromise = null;
+let katexLoadPromise = null;
+let mathJaxLoadPromise = null;
+let mathJaxTypesetPromise = Promise.resolve();
 let renderPreviewToken = 0;
 
 const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+const ICON_SETTINGS = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .66.39 1.26 1 1.51H21a2 2 0 1 1 0 4h-.09c-.66 0-1.26.39-1.51 1Z"/></svg>`;
 const ICON_PANEL_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m16 15-3-3 3-3"/></svg>`;
 const ICON_PANEL_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m12 9 3 3-3 3"/></svg>`;
 const ICON_TOC_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>`;
@@ -365,6 +430,32 @@ function loadScriptOnce(src) {
   });
 }
 
+function loadStylesheetOnce(href) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`link[data-dynamic-href="${href}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "true") {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error(`Failed to load ${href}`)), { once: true });
+      return;
+    }
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.dataset.dynamicHref = href;
+    link.addEventListener("load", () => {
+      link.dataset.loaded = "true";
+      resolve();
+    }, { once: true });
+    link.addEventListener("error", () => reject(new Error(`Failed to load ${href}`)), { once: true });
+    document.head.appendChild(link);
+  });
+}
+
 async function ensurePrismLoaded() {
   if (prismApi) return prismApi;
   if (!prismLoadPromise) {
@@ -388,9 +479,153 @@ async function ensureMermaidLoaded() {
   return mermaidLoadPromise;
 }
 
+async function ensureKatexLoaded() {
+  if (katexApi && katexAutoRender) {
+    return { katex: katexApi, renderMathInElement: katexAutoRender };
+  }
+  if (!katexLoadPromise) {
+    katexLoadPromise = loadStylesheetOnce("libs/katex/katex.min.css")
+      .then(() => loadScriptOnce("libs/katex/katex.min.js"))
+      .then(() => loadScriptOnce("libs/katex/contrib/auto-render.min.js"))
+      .then(() => {
+        katexApi = window.katex ?? null;
+        katexAutoRender = window.renderMathInElement ?? null;
+        return { katex: katexApi, renderMathInElement: katexAutoRender };
+      });
+  }
+  return katexLoadPromise;
+}
+
+function getMathJaxConfig() {
+  return {
+    tex: {
+      inlineMath: [["$", "$"], ["\\(", "\\)"]],
+      displayMath: [["$$", "$$"], ["\\[", "\\]"]],
+      processEscapes: true,
+    },
+    svg: {
+      fontCache: "local",
+    },
+    options: {
+      skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"],
+    },
+    startup: {
+      typeset: false,
+    },
+  };
+}
+
+async function ensureMathJaxLoaded() {
+  if (mathJaxApi?.typesetPromise) return mathJaxApi;
+  if (!mathJaxLoadPromise) {
+    mathJaxLoadPromise = (async () => {
+      const config = getMathJaxConfig();
+      window.MathJax = {
+        ...(window.MathJax ?? {}),
+        ...config,
+        tex: {
+          ...(window.MathJax?.tex ?? {}),
+          ...config.tex,
+        },
+        svg: {
+          ...(window.MathJax?.svg ?? {}),
+          ...config.svg,
+        },
+        options: {
+          ...(window.MathJax?.options ?? {}),
+          ...config.options,
+        },
+        startup: {
+          ...(window.MathJax?.startup ?? {}),
+          ...config.startup,
+        },
+      };
+      await loadScriptOnce("libs/mathjax/tex-svg.js");
+      mathJaxApi = window.MathJax?.typesetPromise ? window.MathJax : null;
+      return mathJaxApi;
+    })();
+  }
+  return mathJaxLoadPromise;
+}
+
+function containsMathSyntax(text) {
+  return /(^|[^\\])\$\$|(^|[^\\])\$[^\s$]|\\\(|\\\[/.test(text);
+}
+
+function getMathDelimiters() {
+  return [
+    { left: "$$", right: "$$", display: true },
+    { left: "\\[", right: "\\]", display: true },
+    { left: "$", right: "$", display: false },
+    { left: "\\(", right: "\\)", display: false },
+  ];
+}
+
+async function renderMathWithKatex(container) {
+  const katex = await ensureKatexLoaded();
+  katex.renderMathInElement?.(container, {
+    delimiters: getMathDelimiters(),
+    ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option"],
+    throwOnError: false,
+    strict: "ignore",
+  });
+}
+
+async function renderMathWithMathJax(container) {
+  const mathJax = await ensureMathJaxLoaded();
+  if (!mathJax?.typesetPromise) return;
+  mathJaxTypesetPromise = mathJaxTypesetPromise
+    .catch(() => {})
+    .then(() => mathJax.typesetPromise([container]));
+  await mathJaxTypesetPromise;
+}
+
+async function renderMath(container) {
+  if (currentMathRenderer === MATH_RENDERERS.mathjax) {
+    await renderMathWithMathJax(container);
+    return;
+  }
+  await renderMathWithKatex(container);
+}
+
 function initMermaid() {
   if (mermaidApi) {
     mermaidApi.initialize({ startOnLoad: false, theme: getMermaidTheme(), securityLevel: "strict" });
+  }
+}
+
+function setMathRenderer(renderer) {
+  const nextRenderer = normalizeMathRenderer(renderer);
+  currentMathRenderer = nextRenderer;
+  localStorage.setItem(mathRendererStorageKey, nextRenderer);
+  if (mathRendererSelect) {
+    mathRendererSelect.value = nextRenderer;
+  }
+  if (activePath) {
+    scrollPositions.set(activePath, viewerEl.scrollTop);
+    void renderPreview();
+  }
+}
+
+function openSettingsDialog() {
+  if (!settingsDialog) return;
+  if (settingsDialog.open) return;
+  if (typeof settingsDialog.showModal === "function") {
+    settingsDialog.showModal();
+  } else {
+    settingsDialog.setAttribute("open", "");
+  }
+  if (settingsToggle) {
+    settingsToggle.setAttribute("aria-pressed", "true");
+  }
+}
+
+function closeSettingsDialog() {
+  if (!settingsDialog) return;
+  if (typeof settingsDialog.close === "function") {
+    settingsDialog.close();
+  } else {
+    settingsDialog.removeAttribute("open");
   }
 }
 
@@ -609,10 +844,6 @@ function setTOCCollapsed(collapsed) {
     tocToggleBtn.setAttribute("aria-label", collapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
     tocToggleBtn.innerHTML = collapsed ? ICON_TOC_OPEN : ICON_TOC_CLOSE;
   }
-}
-
-if (tocToggleBtn) {
-  tocToggleBtn.addEventListener("click", () => setTOCCollapsed(!tocEl.classList.contains("collapsed")));
 }
 
 function updateTOCActive() {
@@ -969,6 +1200,48 @@ function setActiveTree(path) {
   activeTreeNode = next;
 }
 
+function updateTabDragIndicators() {
+  if (!tabsEl) return;
+  tabsEl.querySelectorAll(".tab").forEach((tabEl) => {
+    const path = tabEl.dataset.path;
+    tabEl.classList.toggle("dragging", path === draggedTabPath);
+    tabEl.classList.toggle("drag-before", path === dragTargetTabPath && dragTargetPosition === "before");
+    tabEl.classList.toggle("drag-after", path === dragTargetTabPath && dragTargetPosition === "after");
+  });
+}
+
+function setTabDropTarget(path, position) {
+  if (dragTargetTabPath === path && dragTargetPosition === position) return;
+  dragTargetTabPath = path;
+  dragTargetPosition = position;
+  updateTabDragIndicators();
+}
+
+function clearTabDragState() {
+  draggedTabPath = null;
+  dragTargetTabPath = null;
+  dragTargetPosition = null;
+  updateTabDragIndicators();
+}
+
+function getTabDropPosition(event, tabEl) {
+  const rect = tabEl.getBoundingClientRect();
+  return event.clientX < rect.left + rect.width / 2 ? "before" : "after";
+}
+
+function moveTab(draggedPath, targetPath, position) {
+  if (!draggedPath || !targetPath || draggedPath === targetPath) return false;
+  const fromIndex = openOrder.indexOf(draggedPath);
+  const targetIndex = openOrder.indexOf(targetPath);
+  if (fromIndex < 0 || targetIndex < 0) return false;
+
+  openOrder.splice(fromIndex, 1);
+  const insertionIndex =
+    targetIndex + (position === "after" ? 1 : 0) - (fromIndex < targetIndex ? 1 : 0);
+  openOrder.splice(insertionIndex, 0, draggedPath);
+  return true;
+}
+
 function renderTabs() {
   tabsEl.innerHTML = "";
   if (closeAllTabsBtn) {
@@ -984,12 +1257,47 @@ function renderTabs() {
     if (!file) return;
     const tab = document.createElement("button");
     tab.className = "tab";
+    tab.dataset.path = path;
+    tab.draggable = openOrder.length >= 2;
     tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", path === activePath ? "true" : "false");
     tab.textContent = file.name;
     tab.addEventListener("click", () => setActiveFile(path));
+    tab.addEventListener("dragstart", (event) => {
+      if (openOrder.length < 2) {
+        event.preventDefault();
+        return;
+      }
+      draggedTabPath = path;
+      dragTargetTabPath = null;
+      dragTargetPosition = null;
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", path);
+      }
+      updateTabDragIndicators();
+    });
+    tab.addEventListener("dragover", (event) => {
+      if (!draggedTabPath) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      setTabDropTarget(path, getTabDropPosition(event, tab));
+    });
+    tab.addEventListener("drop", (event) => {
+      if (!draggedTabPath) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const position = getTabDropPosition(event, tab);
+      const changed = moveTab(draggedTabPath, path, position);
+      clearTabDragState();
+      if (changed) renderTabs();
+    });
+    tab.addEventListener("dragend", () => {
+      clearTabDragState();
+    });
     const close = document.createElement("button");
     close.className = "close-tab";
+    close.draggable = false;
     close.setAttribute("aria-label", t("tab.closeLabel", { name: file.name }));
     close.textContent = "×";
     close.addEventListener("click", (event) => { event.stopPropagation(); closeFile(path); });
@@ -998,6 +1306,7 @@ function renderTabs() {
     fragment.appendChild(tab);
   });
   tabsEl.appendChild(fragment);
+  updateTabDragIndicators();
 }
 
 function closeFile(path) {
@@ -1112,6 +1421,18 @@ async function renderPreview() {
         image.replaceWith(fallback);
       });
   });
+
+  if (containsMathSyntax(file.content)) {
+    try {
+      await renderMath(previewEl);
+      if (token !== renderPreviewToken || activePath !== currentPath) {
+        return;
+      }
+    } catch (err) {
+      console.warn("[preview] Failed to render math:", err);
+    }
+  }
+
   const codeBlocks = previewEl.querySelectorAll("pre code");
   codeBlocks.forEach((block) => {
     const language = block.className.match(/language-([\w-]+)/)?.[1];
@@ -1261,8 +1582,8 @@ if (themeToggle) {
     localStorage.setItem(themeStorageKey, nextTheme);
     if (activePath) scrollPositions.set(activePath, viewerEl.scrollTop);
     applyTheme(nextTheme);
-    if (previewEl.querySelector(".mermaid")) {
-      renderPreview();
+    if (previewEl.querySelector(".mermaid, mjx-container")) {
+      void renderPreview();
     }
   });
 }
@@ -1309,6 +1630,39 @@ if (resizerEl) {
 }
 
 if (langToggle) langToggle.addEventListener("click", () => setLang(currentLang === "zh-TW" ? "en" : "zh-TW"));
+if (settingsToggle) {
+  settingsToggle.addEventListener("click", () => {
+    if (settingsDialog?.open) {
+      closeSettingsDialog();
+      return;
+    }
+    openSettingsDialog();
+  });
+}
+if (settingsCloseButton) {
+  settingsCloseButton.addEventListener("click", () => {
+    closeSettingsDialog();
+  });
+}
+if (settingsDialog) {
+  settingsDialog.addEventListener("close", () => {
+    if (settingsToggle) {
+      settingsToggle.setAttribute("aria-pressed", "false");
+      settingsToggle.focus();
+    }
+  });
+  settingsDialog.addEventListener("click", (event) => {
+    if (event.target === settingsDialog) {
+      closeSettingsDialog();
+    }
+  });
+}
+if (mathRendererSelect) {
+  mathRendererSelect.addEventListener("change", (event) => {
+    const value = event.target instanceof HTMLSelectElement ? event.target.value : MATH_RENDERERS.katex;
+    setMathRenderer(value);
+  });
+}
 if (closeAllTabsBtn) closeAllTabsBtn.addEventListener("click", closeAllFiles);
 
 if (recentPanelToggleBtn) {

@@ -78,6 +78,7 @@
               <h2 id="search-results-label" class="sr-only">搜尋結果</h2>
             </aside>
           </div>
+          <button id="settings-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="開啟設定"></button>
           <button id="lang-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="Switch to English">中</button>
           <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="切換主題"></button>
         </div>
@@ -111,6 +112,32 @@
     <div id="statusbar" class="statusbar" role="status">
       <span id="status-text">等待選擇資料夾</span>
     </div>
+
+    <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+      <div class="settings-panel">
+        <div class="settings-header">
+          <div class="settings-header-copy">
+            <h2 id="settings-title" class="settings-title">設定</h2>
+            <p id="settings-description" class="settings-description">管理預覽與介面設定。</p>
+          </div>
+          <button id="settings-close" class="theme-toggle-btn" type="button" aria-label="關閉設定"></button>
+        </div>
+
+        <section class="settings-section" aria-labelledby="settings-rendering-title">
+          <div class="settings-section-copy">
+            <h3 id="settings-rendering-title" class="settings-section-title">公式渲染</h3>
+            <p id="settings-rendering-description" class="settings-section-description">選擇 LaTeX 公式的渲染引擎。</p>
+          </div>
+          <label class="math-renderer-field" for="math-renderer">
+            <span id="math-renderer-label" class="math-renderer-label">公式引擎</span>
+            <select id="math-renderer" class="math-renderer-select" aria-label="選擇 LaTeX 渲染器">
+              <option value="katex">KaTeX</option>
+              <option value="mathjax">MathJax</option>
+            </select>
+          </label>
+        </section>
+      </div>
+    </dialog>
 
     <script type="module" src="app.js"></script>
   </body>

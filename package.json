@@ -20,7 +20,9 @@
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
+    "katex": "^0.16.45",
     "marked": "^17.0.5",
+    "mathjax-full": "^3.2.1",
     "mermaid": "^11.13.0",
     "prismjs": "^1.30.0"
   }
