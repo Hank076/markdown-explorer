@@ -102,3 +102,23 @@ test("buildDocumentRecord decodes HTML entities in heading text", () => {
 
   assert.deepEqual(record.headings, [{ level: 1, text: "Install & Go", id: "install-go" }]);
 });
+
+test("buildDocumentRecord decodes copy entity in heading text", () => {
+  const record = buildDocumentRecord({
+    path: "guide/copy-heading.md",
+    content: "# Docs &copy; Guide\n",
+  });
+
+  assert.deepEqual(record.headings, [{ level: 1, text: "Docs © Guide", id: "docs-guide" }]);
+});
+
+test("buildDocumentRecord keeps invalid numeric entities without throwing", () => {
+  assert.doesNotThrow(() => {
+    const record = buildDocumentRecord({
+      path: "guide/invalid-entity.md",
+      content: "# Broken &#x110000; Entity\n",
+    });
+
+    assert.deepEqual(record.headings, [{ level: 1, text: "Broken &#x110000; Entity", id: "broken-x110000-entity" }]);
+  });
+});

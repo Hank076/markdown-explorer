@@ -4,12 +4,14 @@ import { buildHeadingRecords } from "./headings.js";
 const headingTextRenderer = new marked.TextRenderer();
 const namedHtmlEntities = new Map([
   ["amp", "&"],
+  ["copy", "©"],
   ["lt", "<"],
   ["gt", ">"],
   ["quot", '"'],
   ["apos", "'"],
   ["nbsp", "\u00a0"],
 ]);
+let htmlEntityDecoder = null;
 
 function stripMarkdown(markdown = "") {
   return markdown
@@ -35,13 +37,44 @@ function stripInlineHtml(text = "") {
   return text.replace(/<[^>]*>/g, "");
 }
 
+function getBrowserEntityDecoder() {
+  if (htmlEntityDecoder !== null) {
+    return htmlEntityDecoder;
+  }
+
+  if (typeof document === "undefined" || typeof document.createElement !== "function") {
+    htmlEntityDecoder = null;
+    return htmlEntityDecoder;
+  }
+
+  const textarea = document.createElement("textarea");
+  htmlEntityDecoder = (value) => {
+    textarea.innerHTML = value;
+    return textarea.value;
+  };
+  return htmlEntityDecoder;
+}
+
 function decodeHtmlEntities(text = "") {
+  const browserDecode = getBrowserEntityDecoder();
+  if (browserDecode) {
+    return browserDecode(text);
+  }
+
   return text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]+);/g, (match, entity) => {
     if (entity[0] === "#") {
       const isHex = entity[1]?.toLowerCase() === "x";
       const rawValue = isHex ? entity.slice(2) : entity.slice(1);
       const codePoint = Number.parseInt(rawValue, isHex ? 16 : 10);
-      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+      if (
+        Number.isNaN(codePoint) ||
+        codePoint < 0 ||
+        codePoint > 0x10ffff ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff)
+      ) {
+        return match;
+      }
+      return String.fromCodePoint(codePoint);
     }
 
     return namedHtmlEntities.get(entity) ?? match;
