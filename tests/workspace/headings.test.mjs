@@ -19,3 +19,13 @@ test("buildHeadingRecords preserves non-Latin text", () => {
   const records = buildHeadingRecords([{ text: "安裝步驟", level: 2 }]);
   assert.equal(records[0].id, "安裝步驟");
 });
+
+test("buildHeadingRecords preserves accented and non-Latin Unicode text", () => {
+  const records = buildHeadingRecords([
+    { text: "Résumé", level: 2 },
+    { text: "Пример", level: 2 },
+    { text: "مرحبا", level: 2 },
+  ]);
+
+  assert.deepEqual(records.map((record) => record.id), ["résumé", "пример", "مرحبا"]);
+});

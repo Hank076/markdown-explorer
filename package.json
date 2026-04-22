@@ -4,6 +4,7 @@
   "description": "A browser-based Markdown viewer with folder tree, multi-tab preview, Mermaid diagrams, and syntax highlighting — no build step required.",
   "author": "Hank",
   "license": "MIT",
+  "type": "module",
   "keywords": [
     "markdown",
     "preview",

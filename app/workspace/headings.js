@@ -1,7 +1,8 @@
 export function slugifyHeading(text = "") {
   return text
+    .normalize("NFKC")
     .toLowerCase()
-    .replace(/[^\w\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af\s-]/g, "")
+    .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, "")
     .trim()
     .replace(/\s+/g, "-");
 }
