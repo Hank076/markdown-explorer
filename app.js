@@ -143,29 +143,44 @@ const settingsTitleEl = document.getElementById("settings-title");
 const settingsDescriptionEl = document.getElementById("settings-description");
 const settingsRenderingTitleEl = document.getElementById("settings-rendering-title");
 const settingsRenderingDescriptionEl = document.getElementById("settings-rendering-description");
-const proseTitleEl = document.getElementById("settings-prose-title");
-const proseDescriptionEl = document.getElementById("settings-prose-description");
-const proseThemeCards = document.querySelectorAll(".prose-theme-card");
-
-const PROSE_THEMES = Object.freeze({ default: "default", github: "github", notion: "notion", editorial: "editorial" });
-
-function normalizeProseTheme(value) {
-  return PROSE_THEMES[value] ?? "default";
-}
+const fontTitleEl = document.getElementById("settings-font-title");
+const fontDescriptionEl = document.getElementById("settings-font-description");
+const fontBtns = document.querySelectorAll(".font-control-btn[data-font]");
+const fontSizeTitleEl = document.getElementById("settings-fontsize-title");
+const fontSizeDescriptionEl = document.getElementById("settings-fontsize-description");
+const fontSizeBtns = document.querySelectorAll(".font-control-btn[data-font-size]");
 
 const langStorageKey = "markdown-explorer-lang";
 const mathRendererStorageKey = "markdown-explorer-math-renderer";
-const proseThemeStorageKey = "markdown-explorer-prose-theme";
+const proseFontStorageKey = "markdown-explorer-prose-font";
+const fontSizeStorageKey = "markdown-explorer-font-size";
 const langTagMap = { "zh-TW": "zh-Hant-TW", en: "en" };
 const MATH_RENDERERS = Object.freeze({ katex: "katex", mathjax: "mathjax" });
 let currentLang = localStorage.getItem(langStorageKey) || "zh-TW";
 let currentMathRenderer = normalizeMathRenderer(localStorage.getItem(mathRendererStorageKey));
-let currentProseTheme = normalizeProseTheme(localStorage.getItem(proseThemeStorageKey));
 let translations = {};
 
 function normalizeMathRenderer(value) {
   return value === MATH_RENDERERS.mathjax ? MATH_RENDERERS.mathjax : MATH_RENDERERS.katex;
 }
+
+const FONT_STACKS = Object.freeze({
+  default: '"Iosevka Aile", "Cascadia Code", "Segoe UI", sans-serif',
+  system: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+  serif: 'Georgia, "Times New Roman", serif',
+});
+const FONT_SIZES = Object.freeze({ "14": "14", "16": "16", "18": "18", "20": "20" });
+
+function normalizeProseFont(value) {
+  return FONT_STACKS[value] ? value : "default";
+}
+
+function normalizeFontSize(value) {
+  return FONT_SIZES[value] ?? "16";
+}
+
+let currentProseFont = normalizeProseFont(localStorage.getItem(proseFontStorageKey));
+let currentFontSize = normalizeFontSize(localStorage.getItem(fontSizeStorageKey));
 
 async function loadLocale(lang) {
   try {
@@ -301,23 +316,24 @@ function applyLocale(lang) {
   if (settingsRenderingDescriptionEl) {
     settingsRenderingDescriptionEl.textContent = t("settings.renderingDescription");
   }
-  if (proseTitleEl) {
-    proseTitleEl.textContent = t("settings.proseTheme.title");
-  }
-  if (proseDescriptionEl) {
-    proseDescriptionEl.textContent = t("settings.proseTheme.description");
-  }
-
-  const proseDescEls = {
-    default: document.getElementById("prose-theme-desc-default"),
-    github: document.getElementById("prose-theme-desc-github"),
-    notion: document.getElementById("prose-theme-desc-notion"),
-    editorial: document.getElementById("prose-theme-desc-editorial"),
-  };
-  if (proseDescEls.default) proseDescEls.default.textContent = t("settings.proseTheme.defaultDesc");
-  if (proseDescEls.github) proseDescEls.github.textContent = t("settings.proseTheme.githubDesc");
-  if (proseDescEls.notion) proseDescEls.notion.textContent = t("settings.proseTheme.notionDesc");
-  if (proseDescEls.editorial) proseDescEls.editorial.textContent = t("settings.proseTheme.editorialDesc");
+  if (fontTitleEl) fontTitleEl.textContent = t("settings.font.title");
+  if (fontDescriptionEl) fontDescriptionEl.textContent = t("settings.font.description");
+  const fontBtnDefault = document.getElementById("font-btn-default");
+  const fontBtnSystem = document.getElementById("font-btn-system");
+  const fontBtnSerif = document.getElementById("font-btn-serif");
+  if (fontBtnDefault) fontBtnDefault.textContent = t("settings.font.default");
+  if (fontBtnSystem) fontBtnSystem.textContent = t("settings.font.system");
+  if (fontBtnSerif) fontBtnSerif.textContent = t("settings.font.serif");
+  if (fontSizeTitleEl) fontSizeTitleEl.textContent = t("settings.fontSize.title");
+  if (fontSizeDescriptionEl) fontSizeDescriptionEl.textContent = t("settings.fontSize.description");
+  const fontSizeBtnSm = document.getElementById("font-size-btn-sm");
+  const fontSizeBtnMd = document.getElementById("font-size-btn-md");
+  const fontSizeBtnLg = document.getElementById("font-size-btn-lg");
+  const fontSizeBtnXl = document.getElementById("font-size-btn-xl");
+  if (fontSizeBtnSm) fontSizeBtnSm.textContent = t("settings.fontSize.sm");
+  if (fontSizeBtnMd) fontSizeBtnMd.textContent = t("settings.fontSize.md");
+  if (fontSizeBtnLg) fontSizeBtnLg.textContent = t("settings.fontSize.lg");
+  if (fontSizeBtnXl) fontSizeBtnXl.textContent = t("settings.fontSize.xl");
 
   if (mathRendererSelect) {
     mathRendererSelect.setAttribute("aria-label", t("math.rendererAria"));
@@ -337,7 +353,6 @@ async function setLang(lang) {
   await loadLocale(lang);
   applyLocale(lang);
   applyTheme(rootEl.getAttribute("data-theme") || getPreferredTheme());
-  applyProseTheme(currentProseTheme);
   if (sidebarToggle) {
     const isCollapsed = appEl.classList.contains("sidebar-collapsed");
     sidebarToggle.setAttribute("aria-label", isCollapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
@@ -422,13 +437,19 @@ function getPreferredTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function applyProseTheme(theme) {
-  rootEl.setAttribute("data-prose", theme);
-  proseThemeCards.forEach((card) => {
-    const isSelected = card.dataset.proseValue === theme;
-    card.classList.toggle("is-selected", isSelected);
-    const radio = card.querySelector(".prose-theme-radio");
-    if (radio) radio.checked = isSelected;
+function applyProseFont(fontKey) {
+  const stack = FONT_STACKS[fontKey] ?? FONT_STACKS.default;
+  rootEl.style.setProperty("--prose-font-body", stack);
+  rootEl.style.setProperty("--prose-font-heading", stack);
+  fontBtns.forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.font === fontKey);
+  });
+}
+
+function applyFontSize(size) {
+  rootEl.style.setProperty("--prose-font-size", `${size}px`);
+  fontSizeBtns.forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.fontSize === size);
   });
 }
 
@@ -1615,12 +1636,21 @@ openFolderButton.addEventListener("click", async () => {
   }
 });
 
-proseThemeCards.forEach((card) => {
-  card.addEventListener("click", () => {
-    const theme = normalizeProseTheme(card.dataset.proseValue);
-    currentProseTheme = theme;
-    localStorage.setItem(proseThemeStorageKey, theme);
-    applyProseTheme(theme);
+fontBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const key = normalizeProseFont(btn.dataset.font);
+    currentProseFont = key;
+    localStorage.setItem(proseFontStorageKey, key);
+    applyProseFont(key);
+  });
+});
+
+fontSizeBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const size = normalizeFontSize(btn.dataset.fontSize);
+    currentFontSize = size;
+    localStorage.setItem(fontSizeStorageKey, size);
+    applyFontSize(size);
   });
 });
 
@@ -1794,7 +1824,8 @@ async function init() {
   await loadLocale(currentLang);
   applyLocale(currentLang);
   applyTheme(getPreferredTheme());
-  applyProseTheme(currentProseTheme);
+  applyProseFont(currentProseFont);
+  applyFontSize(currentFontSize);
   initMermaid();
   appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   setSidebarCollapsed(false);

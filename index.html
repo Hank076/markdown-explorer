@@ -137,32 +137,28 @@
           </label>
         </section>
 
-        <section class="settings-section" aria-labelledby="settings-prose-title">
+        <section class="settings-section" aria-labelledby="settings-font-title">
           <div class="settings-section-copy">
-            <h3 id="settings-prose-title" class="settings-section-title">文章主題</h3>
-            <p id="settings-prose-description" class="settings-section-description">選擇 Markdown 預覽的排版風格。</p>
+            <h3 id="settings-font-title" class="settings-section-title">字體</h3>
+            <p id="settings-font-description" class="settings-section-description">選擇 Markdown 預覽的字體。</p>
           </div>
-          <div class="prose-theme-grid" role="radiogroup" aria-labelledby="settings-prose-title">
-            <label class="prose-theme-card" data-prose-value="default">
-              <input type="radio" name="prose-theme" value="default" class="prose-theme-radio" />
-              <span class="prose-theme-name" id="prose-theme-label-default">Default</span>
-              <span class="prose-theme-desc" id="prose-theme-desc-default">開發者 UI 感，等寬字型</span>
-            </label>
-            <label class="prose-theme-card" data-prose-value="github">
-              <input type="radio" name="prose-theme" value="github" class="prose-theme-radio" />
-              <span class="prose-theme-name" id="prose-theme-label-github">GitHub</span>
-              <span class="prose-theme-desc" id="prose-theme-desc-github">乾淨、文件感，系統字型</span>
-            </label>
-            <label class="prose-theme-card" data-prose-value="notion">
-              <input type="radio" name="prose-theme" value="notion" class="prose-theme-radio" />
-              <span class="prose-theme-name" id="prose-theme-label-notion">Notion</span>
-              <span class="prose-theme-desc" id="prose-theme-desc-notion">柔和、筆記感，寬鬆行距</span>
-            </label>
-            <label class="prose-theme-card" data-prose-value="editorial">
-              <input type="radio" name="prose-theme" value="editorial" class="prose-theme-radio" />
-              <span class="prose-theme-name" id="prose-theme-label-editorial">Editorial</span>
-              <span class="prose-theme-desc" id="prose-theme-desc-editorial">閱讀、書籍感，襯線字型</span>
-            </label>
+          <div class="font-control" role="group" aria-labelledby="settings-font-title">
+            <button class="font-control-btn" data-font="default" id="font-btn-default">預設</button>
+            <button class="font-control-btn" data-font="system" id="font-btn-system">系統</button>
+            <button class="font-control-btn" data-font="serif" id="font-btn-serif">閱讀</button>
+          </div>
+        </section>
+
+        <section class="settings-section" aria-labelledby="settings-fontsize-title">
+          <div class="settings-section-copy">
+            <h3 id="settings-fontsize-title" class="settings-section-title">字級大小</h3>
+            <p id="settings-fontsize-description" class="settings-section-description">調整 Markdown 預覽的全域字體大小。</p>
+          </div>
+          <div class="font-control" role="group" aria-labelledby="settings-fontsize-title">
+            <button class="font-control-btn" data-font-size="14" id="font-size-btn-sm">小</button>
+            <button class="font-control-btn" data-font-size="16" id="font-size-btn-md">中</button>
+            <button class="font-control-btn" data-font-size="18" id="font-size-btn-lg">大</button>
+            <button class="font-control-btn" data-font-size="20" id="font-size-btn-xl">特大</button>
           </div>
         </section>
       </div>
