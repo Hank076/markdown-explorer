@@ -58,5 +58,15 @@
   "recent.folderNotFound": "Folder not found, please reopen",
   "sidebar.recentPanel": "Recent",
   "dragdrop.hint": "Drop to open Markdown file",
-  "alert.onlyMarkdown": "Only .md files are supported"
+  "alert.onlyMarkdown": "Only .md files are supported",
+  "settings.proseTheme.title": "Prose Theme",
+  "settings.proseTheme.description": "Choose the typography style for the Markdown preview.",
+  "settings.proseTheme.default": "Default",
+  "settings.proseTheme.defaultDesc": "Developer UI feel, monospace font",
+  "settings.proseTheme.github": "GitHub",
+  "settings.proseTheme.githubDesc": "Clean, document-style, system font",
+  "settings.proseTheme.notion": "Notion",
+  "settings.proseTheme.notionDesc": "Soft, note-taking feel, generous spacing",
+  "settings.proseTheme.editorial": "Editorial",
+  "settings.proseTheme.editorialDesc": "Reading, book-like, serif font"
 }

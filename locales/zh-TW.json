@@ -58,5 +58,15 @@
   "recent.folderNotFound": "找不到資料夾，請重新開啟",
   "sidebar.recentPanel": "最近開啟",
   "dragdrop.hint": "放開以開啟 Markdown 檔案",
-  "alert.onlyMarkdown": "僅支援 .md 檔案"
+  "alert.onlyMarkdown": "僅支援 .md 檔案",
+  "settings.proseTheme.title": "文章主題",
+  "settings.proseTheme.description": "選擇 Markdown 預覽的排版風格。",
+  "settings.proseTheme.default": "Default",
+  "settings.proseTheme.defaultDesc": "開發者 UI 感，等寬字型",
+  "settings.proseTheme.github": "GitHub",
+  "settings.proseTheme.githubDesc": "乾淨、文件感，系統字型",
+  "settings.proseTheme.notion": "Notion",
+  "settings.proseTheme.notionDesc": "柔和、筆記感，寬鬆行距",
+  "settings.proseTheme.editorial": "Editorial",
+  "settings.proseTheme.editorialDesc": "閱讀、書籍感，襯線字型"
 }

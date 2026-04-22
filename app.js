@@ -143,13 +143,24 @@ const settingsTitleEl = document.getElementById("settings-title");
 const settingsDescriptionEl = document.getElementById("settings-description");
 const settingsRenderingTitleEl = document.getElementById("settings-rendering-title");
 const settingsRenderingDescriptionEl = document.getElementById("settings-rendering-description");
+const proseTitleEl = document.getElementById("settings-prose-title");
+const proseDescriptionEl = document.getElementById("settings-prose-description");
+const proseThemeCards = document.querySelectorAll(".prose-theme-card");
+
+const PROSE_THEMES = Object.freeze({ default: "default", github: "github", notion: "notion", editorial: "editorial" });
+
+function normalizeProseTheme(value) {
+  return PROSE_THEMES[value] ?? "default";
+}
 
 const langStorageKey = "markdown-explorer-lang";
 const mathRendererStorageKey = "markdown-explorer-math-renderer";
+const proseThemeStorageKey = "markdown-explorer-prose-theme";
 const langTagMap = { "zh-TW": "zh-Hant-TW", en: "en" };
 const MATH_RENDERERS = Object.freeze({ katex: "katex", mathjax: "mathjax" });
 let currentLang = localStorage.getItem(langStorageKey) || "zh-TW";
 let currentMathRenderer = normalizeMathRenderer(localStorage.getItem(mathRendererStorageKey));
+let currentProseTheme = normalizeProseTheme(localStorage.getItem(proseThemeStorageKey));
 let translations = {};
 
 function normalizeMathRenderer(value) {
@@ -290,6 +301,23 @@ function applyLocale(lang) {
   if (settingsRenderingDescriptionEl) {
     settingsRenderingDescriptionEl.textContent = t("settings.renderingDescription");
   }
+  if (proseTitleEl) {
+    proseTitleEl.textContent = t("settings.proseTheme.title");
+  }
+  if (proseDescriptionEl) {
+    proseDescriptionEl.textContent = t("settings.proseTheme.description");
+  }
+
+  const proseDescEls = {
+    default: document.getElementById("prose-theme-desc-default"),
+    github: document.getElementById("prose-theme-desc-github"),
+    notion: document.getElementById("prose-theme-desc-notion"),
+    editorial: document.getElementById("prose-theme-desc-editorial"),
+  };
+  if (proseDescEls.default) proseDescEls.default.textContent = t("settings.proseTheme.defaultDesc");
+  if (proseDescEls.github) proseDescEls.github.textContent = t("settings.proseTheme.githubDesc");
+  if (proseDescEls.notion) proseDescEls.notion.textContent = t("settings.proseTheme.notionDesc");
+  if (proseDescEls.editorial) proseDescEls.editorial.textContent = t("settings.proseTheme.editorialDesc");
 
   if (mathRendererSelect) {
     mathRendererSelect.setAttribute("aria-label", t("math.rendererAria"));
@@ -309,6 +337,7 @@ async function setLang(lang) {
   await loadLocale(lang);
   applyLocale(lang);
   applyTheme(rootEl.getAttribute("data-theme") || getPreferredTheme());
+  applyProseTheme(currentProseTheme);
   if (sidebarToggle) {
     const isCollapsed = appEl.classList.contains("sidebar-collapsed");
     sidebarToggle.setAttribute("aria-label", isCollapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
@@ -391,6 +420,16 @@ function getPreferredTheme() {
   const stored = localStorage.getItem(themeStorageKey);
   if (stored === "light" || stored === "dark") return stored;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyProseTheme(theme) {
+  rootEl.setAttribute("data-prose", theme);
+  proseThemeCards.forEach((card) => {
+    const isSelected = card.dataset.proseValue === theme;
+    card.classList.toggle("is-selected", isSelected);
+    const radio = card.querySelector(".prose-theme-radio");
+    if (radio) radio.checked = isSelected;
+  });
 }
 
 function applyTheme(theme) {
@@ -1576,6 +1615,15 @@ openFolderButton.addEventListener("click", async () => {
   }
 });
 
+proseThemeCards.forEach((card) => {
+  card.addEventListener("click", () => {
+    const theme = normalizeProseTheme(card.dataset.proseValue);
+    currentProseTheme = theme;
+    localStorage.setItem(proseThemeStorageKey, theme);
+    applyProseTheme(theme);
+  });
+});
+
 if (themeToggle) {
   themeToggle.addEventListener("click", () => {
     const nextTheme = rootEl.getAttribute("data-theme") === "dark" ? "light" : "dark";
@@ -1746,6 +1794,7 @@ async function init() {
   await loadLocale(currentLang);
   applyLocale(currentLang);
   applyTheme(getPreferredTheme());
+  applyProseTheme(currentProseTheme);
   initMermaid();
   appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   setSidebarCollapsed(false);

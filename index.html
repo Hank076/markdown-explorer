@@ -136,6 +136,35 @@
             </select>
           </label>
         </section>
+
+        <section class="settings-section" aria-labelledby="settings-prose-title">
+          <div class="settings-section-copy">
+            <h3 id="settings-prose-title" class="settings-section-title">文章主題</h3>
+            <p id="settings-prose-description" class="settings-section-description">選擇 Markdown 預覽的排版風格。</p>
+          </div>
+          <div class="prose-theme-grid" role="radiogroup" aria-labelledby="settings-prose-title">
+            <label class="prose-theme-card" data-prose-value="default">
+              <input type="radio" name="prose-theme" value="default" class="prose-theme-radio" />
+              <span class="prose-theme-name" id="prose-theme-label-default">Default</span>
+              <span class="prose-theme-desc" id="prose-theme-desc-default">開發者 UI 感，等寬字型</span>
+            </label>
+            <label class="prose-theme-card" data-prose-value="github">
+              <input type="radio" name="prose-theme" value="github" class="prose-theme-radio" />
+              <span class="prose-theme-name" id="prose-theme-label-github">GitHub</span>
+              <span class="prose-theme-desc" id="prose-theme-desc-github">乾淨、文件感，系統字型</span>
+            </label>
+            <label class="prose-theme-card" data-prose-value="notion">
+              <input type="radio" name="prose-theme" value="notion" class="prose-theme-radio" />
+              <span class="prose-theme-name" id="prose-theme-label-notion">Notion</span>
+              <span class="prose-theme-desc" id="prose-theme-desc-notion">柔和、筆記感，寬鬆行距</span>
+            </label>
+            <label class="prose-theme-card" data-prose-value="editorial">
+              <input type="radio" name="prose-theme" value="editorial" class="prose-theme-radio" />
+              <span class="prose-theme-name" id="prose-theme-label-editorial">Editorial</span>
+              <span class="prose-theme-desc" id="prose-theme-desc-editorial">閱讀、書籍感，襯線字型</span>
+            </label>
+          </div>
+        </section>
       </div>
     </dialog>
 
