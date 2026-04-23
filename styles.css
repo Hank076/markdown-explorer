@@ -40,6 +40,9 @@
   --prose-blockquote-border-width: 3px;
   --prose-paragraph-spacing: 0;
   --prose-font-size: 16px;
+  --prose-h-color: var(--color-text-primary);
+  --prose-h-accent: var(--color-primary);
+  --prose-bg-accent: color-mix(in srgb, var(--color-primary) 6%, transparent);
 }
 
 html[data-theme="dark"] {
@@ -1163,10 +1166,11 @@ body {
 .preview h2,
 .preview h3 {
   margin-top: var(--space-6);
-  border-bottom: var(--prose-h-border);
+  border-bottom: 1px solid var(--prose-h-accent);
   padding-bottom: var(--space-1);
   font-family: var(--prose-font-heading);
   font-weight: var(--prose-h-weight);
+  color: var(--prose-h-color);
 }
 
 .preview h1 {
@@ -1184,6 +1188,10 @@ body {
   line-height: var(--line-height-h3);
 }
 
+.preview h4 {
+  color: var(--prose-h-color);
+}
+
 .preview pre {
   background: var(--color-bg-code);
   padding: var(--space-4);
@@ -1197,10 +1205,14 @@ body {
 }
 
 .preview blockquote {
-  border-left: var(--prose-blockquote-border-width) solid var(--color-primary);
+  border-left: var(--prose-blockquote-border-width) solid var(--prose-h-accent);
   margin-left: 0;
   padding-left: var(--space-3);
   color: var(--color-text-tertiary);
+  background: var(--prose-bg-accent);
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 .preview p {
@@ -1219,13 +1231,17 @@ body {
   padding: var(--space-2) var(--space-2);
 }
 
+.preview th {
+  background: var(--prose-bg-accent);
+}
+
 .preview a {
-  color: var(--color-focus-ring);
+  color: var(--prose-h-accent);
   text-decoration: underline;
 }
 
 .preview a:visited {
-  color: color-mix(in srgb, var(--color-focus-ring) 70%, var(--color-text-tertiary));
+  color: color-mix(in srgb, var(--prose-h-accent) 70%, var(--color-text-tertiary));
 }
 
 .preview-image-missing {
@@ -1649,4 +1665,39 @@ body {
   max-height: 240px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* ── Prose themes ── */
+
+html[data-prose-theme="vue"][data-theme="light"] {
+  --prose-h-color: #2d7a4f;
+  --prose-h-accent: #42b883;
+  --prose-bg-accent: #f0fdf4;
+}
+html[data-prose-theme="vue"][data-theme="dark"] {
+  --prose-h-color: #42b883;
+  --prose-h-accent: #34d399;
+  --prose-bg-accent: #052e16;
+}
+
+html[data-prose-theme="indigo"][data-theme="light"] {
+  --prose-h-color: #4338ca;
+  --prose-h-accent: #6366f1;
+  --prose-bg-accent: #eef2ff;
+}
+html[data-prose-theme="indigo"][data-theme="dark"] {
+  --prose-h-color: #818cf8;
+  --prose-h-accent: #a5b4fc;
+  --prose-bg-accent: #1e1b4b;
+}
+
+html[data-prose-theme="bear"][data-theme="light"] {
+  --prose-h-color: #92400e;
+  --prose-h-accent: #d97706;
+  --prose-bg-accent: #fffbeb;
+}
+html[data-prose-theme="bear"][data-theme="dark"] {
+  --prose-h-color: #f59e0b;
+  --prose-h-accent: #fbbf24;
+  --prose-bg-accent: #1c1008;
 }
