@@ -30,6 +30,16 @@
   --space-16: 64px;
 
   --radius: 14px;
+
+  /* prose typography */
+  --prose-font-body: "Iosevka Aile", "Cascadia Code", "Segoe UI", sans-serif;
+  --prose-font-heading: "Iosevka Aile", "Cascadia Code", "Segoe UI", sans-serif;
+  --prose-line-height: 2em;
+  --prose-h-weight: 600;
+  --prose-h-border: 1px solid var(--color-border-subtle);
+  --prose-blockquote-border-width: 3px;
+  --prose-paragraph-spacing: 0;
+  --prose-font-size: 16px;
 }
 
 html[data-theme="dark"] {
@@ -85,6 +95,7 @@ html[data-theme="light"] {
   --color-error-border: #ef4444;
   --color-error-text: #991b1b;
 }
+
 
 * {
   box-sizing: border-box;
@@ -549,6 +560,9 @@ body {
   border-radius: calc(var(--radius) + 4px);
   box-shadow: var(--shadow-elevated);
   padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .settings-header {
@@ -608,6 +622,40 @@ body {
   gap: var(--space-2);
   max-width: 240px;
 }
+
+/* ── Font controls ── */
+.font-control {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.font-control-btn {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius);
+  background: var(--color-bg-raised);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  text-align: center;
+  user-select: none;
+}
+
+.font-control-btn:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+.font-control-btn.is-selected {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg-raised));
+  color: var(--color-text-primary);
+}
+
 
 .search-box input {
   width: 100%;
@@ -946,7 +994,9 @@ body {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius);
   padding: var(--space-6) var(--space-7, 28px);
-  line-height: var(--line-height-body);
+  line-height: var(--prose-line-height);
+  font-family: var(--prose-font-body);
+  font-size: var(--prose-font-size);
   box-shadow: var(--shadow-elevated);
 }
 
@@ -1113,8 +1163,10 @@ body {
 .preview h2,
 .preview h3 {
   margin-top: var(--space-6);
-  border-bottom: 1px solid var(--color-border-subtle);
+  border-bottom: var(--prose-h-border);
   padding-bottom: var(--space-1);
+  font-family: var(--prose-font-heading);
+  font-weight: var(--prose-h-weight);
 }
 
 .preview h1 {
@@ -1145,10 +1197,14 @@ body {
 }
 
 .preview blockquote {
-  border-left: 3px solid var(--color-primary);
+  border-left: var(--prose-blockquote-border-width) solid var(--color-primary);
   margin-left: 0;
   padding-left: var(--space-3);
   color: var(--color-text-tertiary);
+}
+
+.preview p {
+  margin-bottom: var(--prose-paragraph-spacing);
 }
 
 .preview table {

@@ -58,5 +58,16 @@
   "recent.folderNotFound": "找不到資料夾，請重新開啟",
   "sidebar.recentPanel": "最近開啟",
   "dragdrop.hint": "放開以開啟 Markdown 檔案",
-  "alert.onlyMarkdown": "僅支援 .md 檔案"
+  "alert.onlyMarkdown": "僅支援 .md 檔案",
+  "settings.font.title": "字體",
+  "settings.font.description": "選擇 Markdown 預覽的字體。",
+  "settings.font.default": "預設",
+  "settings.font.serif": "襯線",
+  "settings.font.sans": "無襯線",
+  "settings.fontSize.title": "字級大小",
+  "settings.fontSize.description": "調整 Markdown 預覽的全域字體大小。",
+  "settings.fontSize.sm": "小",
+  "settings.fontSize.md": "中",
+  "settings.fontSize.lg": "大",
+  "settings.fontSize.xl": "特大"
 }

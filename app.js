@@ -143,9 +143,17 @@ const settingsTitleEl = document.getElementById("settings-title");
 const settingsDescriptionEl = document.getElementById("settings-description");
 const settingsRenderingTitleEl = document.getElementById("settings-rendering-title");
 const settingsRenderingDescriptionEl = document.getElementById("settings-rendering-description");
+const fontTitleEl = document.getElementById("settings-font-title");
+const fontDescriptionEl = document.getElementById("settings-font-description");
+const fontBtns = document.querySelectorAll(".font-control-btn[data-font]");
+const fontSizeTitleEl = document.getElementById("settings-fontsize-title");
+const fontSizeDescriptionEl = document.getElementById("settings-fontsize-description");
+const fontSizeBtns = document.querySelectorAll(".font-control-btn[data-font-size]");
 
 const langStorageKey = "markdown-explorer-lang";
 const mathRendererStorageKey = "markdown-explorer-math-renderer";
+const proseFontStorageKey = "markdown-explorer-prose-font";
+const fontSizeStorageKey = "markdown-explorer-font-size";
 const langTagMap = { "zh-TW": "zh-Hant-TW", en: "en" };
 const MATH_RENDERERS = Object.freeze({ katex: "katex", mathjax: "mathjax" });
 let currentLang = localStorage.getItem(langStorageKey) || "zh-TW";
@@ -155,6 +163,24 @@ let translations = {};
 function normalizeMathRenderer(value) {
   return value === MATH_RENDERERS.mathjax ? MATH_RENDERERS.mathjax : MATH_RENDERERS.katex;
 }
+
+const FONT_STACKS = Object.freeze({
+  default: '"Iosevka Aile", "Cascadia Code", ui-monospace, monospace',
+  serif: 'serif',
+  sans: 'sans-serif',
+});
+const FONT_SIZES = Object.freeze({ "14": "14", "16": "16", "18": "18", "20": "20" });
+
+function normalizeProseFont(value) {
+  return FONT_STACKS[value] ? value : "default";
+}
+
+function normalizeFontSize(value) {
+  return FONT_SIZES[value] ?? "16";
+}
+
+let currentProseFont = normalizeProseFont(localStorage.getItem(proseFontStorageKey));
+let currentFontSize = normalizeFontSize(localStorage.getItem(fontSizeStorageKey));
 
 async function loadLocale(lang) {
   try {
@@ -290,6 +316,24 @@ function applyLocale(lang) {
   if (settingsRenderingDescriptionEl) {
     settingsRenderingDescriptionEl.textContent = t("settings.renderingDescription");
   }
+  if (fontTitleEl) fontTitleEl.textContent = t("settings.font.title");
+  if (fontDescriptionEl) fontDescriptionEl.textContent = t("settings.font.description");
+  const fontBtnDefault = document.getElementById("font-btn-default");
+  const fontBtnSerif = document.getElementById("font-btn-serif");
+  const fontBtnSans = document.getElementById("font-btn-sans");
+  if (fontBtnDefault) fontBtnDefault.textContent = t("settings.font.default");
+  if (fontBtnSerif) fontBtnSerif.textContent = t("settings.font.serif");
+  if (fontBtnSans) fontBtnSans.textContent = t("settings.font.sans");
+  if (fontSizeTitleEl) fontSizeTitleEl.textContent = t("settings.fontSize.title");
+  if (fontSizeDescriptionEl) fontSizeDescriptionEl.textContent = t("settings.fontSize.description");
+  const fontSizeBtnSm = document.getElementById("font-size-btn-sm");
+  const fontSizeBtnMd = document.getElementById("font-size-btn-md");
+  const fontSizeBtnLg = document.getElementById("font-size-btn-lg");
+  const fontSizeBtnXl = document.getElementById("font-size-btn-xl");
+  if (fontSizeBtnSm) fontSizeBtnSm.textContent = t("settings.fontSize.sm");
+  if (fontSizeBtnMd) fontSizeBtnMd.textContent = t("settings.fontSize.md");
+  if (fontSizeBtnLg) fontSizeBtnLg.textContent = t("settings.fontSize.lg");
+  if (fontSizeBtnXl) fontSizeBtnXl.textContent = t("settings.fontSize.xl");
 
   if (mathRendererSelect) {
     mathRendererSelect.setAttribute("aria-label", t("math.rendererAria"));
@@ -391,6 +435,22 @@ function getPreferredTheme() {
   const stored = localStorage.getItem(themeStorageKey);
   if (stored === "light" || stored === "dark") return stored;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyProseFont(fontKey) {
+  const stack = FONT_STACKS[fontKey] ?? FONT_STACKS.default;
+  rootEl.style.setProperty("--prose-font-body", stack);
+  rootEl.style.setProperty("--prose-font-heading", stack);
+  fontBtns.forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.font === fontKey);
+  });
+}
+
+function applyFontSize(size) {
+  rootEl.style.setProperty("--prose-font-size", `${size}px`);
+  fontSizeBtns.forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.fontSize === size);
+  });
 }
 
 function applyTheme(theme) {
@@ -1576,6 +1636,24 @@ openFolderButton.addEventListener("click", async () => {
   }
 });
 
+fontBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const key = normalizeProseFont(btn.dataset.font);
+    currentProseFont = key;
+    localStorage.setItem(proseFontStorageKey, key);
+    applyProseFont(key);
+  });
+});
+
+fontSizeBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const size = normalizeFontSize(btn.dataset.fontSize);
+    currentFontSize = size;
+    localStorage.setItem(fontSizeStorageKey, size);
+    applyFontSize(size);
+  });
+});
+
 if (themeToggle) {
   themeToggle.addEventListener("click", () => {
     const nextTheme = rootEl.getAttribute("data-theme") === "dark" ? "light" : "dark";
@@ -1746,6 +1824,8 @@ async function init() {
   await loadLocale(currentLang);
   applyLocale(currentLang);
   applyTheme(getPreferredTheme());
+  applyProseFont(currentProseFont);
+  applyFontSize(currentFontSize);
   initMermaid();
   appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   setSidebarCollapsed(false);

@@ -58,5 +58,16 @@
   "recent.folderNotFound": "Folder not found, please reopen",
   "sidebar.recentPanel": "Recent",
   "dragdrop.hint": "Drop to open Markdown file",
-  "alert.onlyMarkdown": "Only .md files are supported"
+  "alert.onlyMarkdown": "Only .md files are supported",
+  "settings.font.title": "Font",
+  "settings.font.description": "Choose the font for the Markdown preview.",
+  "settings.font.default": "Default",
+  "settings.font.serif": "Serif",
+  "settings.font.sans": "Sans-serif",
+  "settings.fontSize.title": "Font Size",
+  "settings.fontSize.description": "Adjust the global font size for the Markdown preview.",
+  "settings.fontSize.sm": "S",
+  "settings.fontSize.md": "M",
+  "settings.fontSize.lg": "L",
+  "settings.fontSize.xl": "XL"
 }

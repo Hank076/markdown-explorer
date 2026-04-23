@@ -136,6 +136,31 @@
             </select>
           </label>
         </section>
+
+        <section class="settings-section" aria-labelledby="settings-font-title">
+          <div class="settings-section-copy">
+            <h3 id="settings-font-title" class="settings-section-title">字體</h3>
+            <p id="settings-font-description" class="settings-section-description">選擇 Markdown 預覽的字體。</p>
+          </div>
+          <div class="font-control" role="group" aria-labelledby="settings-font-title">
+            <button class="font-control-btn" data-font="default" id="font-btn-default">預設</button>
+            <button class="font-control-btn" data-font="serif" id="font-btn-serif">襯線</button>
+            <button class="font-control-btn" data-font="sans" id="font-btn-sans">無襯線</button>
+          </div>
+        </section>
+
+        <section class="settings-section" aria-labelledby="settings-fontsize-title">
+          <div class="settings-section-copy">
+            <h3 id="settings-fontsize-title" class="settings-section-title">字級大小</h3>
+            <p id="settings-fontsize-description" class="settings-section-description">調整 Markdown 預覽的全域字體大小。</p>
+          </div>
+          <div class="font-control" role="group" aria-labelledby="settings-fontsize-title">
+            <button class="font-control-btn" data-font-size="14" id="font-size-btn-sm">小</button>
+            <button class="font-control-btn" data-font-size="16" id="font-size-btn-md">中</button>
+            <button class="font-control-btn" data-font-size="18" id="font-size-btn-lg">大</button>
+            <button class="font-control-btn" data-font-size="20" id="font-size-btn-xl">特大</button>
+          </div>
+        </section>
       </div>
     </dialog>
 
