@@ -69,5 +69,11 @@
   "settings.fontSize.sm": "S",
   "settings.fontSize.md": "M",
   "settings.fontSize.lg": "L",
-  "settings.fontSize.xl": "XL"
+  "settings.fontSize.xl": "XL",
+  "settings.proseTheme.title": "Markdown Theme",
+  "settings.proseTheme.description": "Choose a colour theme for the preview.",
+  "settings.proseTheme.default": "Default",
+  "settings.proseTheme.vue": "Vue",
+  "settings.proseTheme.indigo": "Indigo",
+  "settings.proseTheme.bear": "Bear"
 }

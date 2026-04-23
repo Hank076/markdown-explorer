@@ -69,5 +69,11 @@
   "settings.fontSize.sm": "小",
   "settings.fontSize.md": "中",
   "settings.fontSize.lg": "大",
-  "settings.fontSize.xl": "特大"
+  "settings.fontSize.xl": "特大",
+  "settings.proseTheme.title": "Markdown 主題",
+  "settings.proseTheme.description": "選擇內文的配色主題。",
+  "settings.proseTheme.default": "預設",
+  "settings.proseTheme.vue": "Vue",
+  "settings.proseTheme.indigo": "Indigo",
+  "settings.proseTheme.bear": "Bear"
 }
