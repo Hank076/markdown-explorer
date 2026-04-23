@@ -165,9 +165,9 @@ function normalizeMathRenderer(value) {
 }
 
 const FONT_STACKS = Object.freeze({
-  default: '"Iosevka Aile", "Cascadia Code", "Segoe UI", sans-serif',
-  system: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-  serif: 'Georgia, "Times New Roman", serif',
+  default: '"Iosevka Aile", "Cascadia Code", ui-monospace, monospace',
+  serif: 'serif',
+  sans: 'sans-serif',
 });
 const FONT_SIZES = Object.freeze({ "14": "14", "16": "16", "18": "18", "20": "20" });
 
@@ -319,11 +319,11 @@ function applyLocale(lang) {
   if (fontTitleEl) fontTitleEl.textContent = t("settings.font.title");
   if (fontDescriptionEl) fontDescriptionEl.textContent = t("settings.font.description");
   const fontBtnDefault = document.getElementById("font-btn-default");
-  const fontBtnSystem = document.getElementById("font-btn-system");
   const fontBtnSerif = document.getElementById("font-btn-serif");
+  const fontBtnSans = document.getElementById("font-btn-sans");
   if (fontBtnDefault) fontBtnDefault.textContent = t("settings.font.default");
-  if (fontBtnSystem) fontBtnSystem.textContent = t("settings.font.system");
   if (fontBtnSerif) fontBtnSerif.textContent = t("settings.font.serif");
+  if (fontBtnSans) fontBtnSans.textContent = t("settings.font.sans");
   if (fontSizeTitleEl) fontSizeTitleEl.textContent = t("settings.fontSize.title");
   if (fontSizeDescriptionEl) fontSizeDescriptionEl.textContent = t("settings.fontSize.description");
   const fontSizeBtnSm = document.getElementById("font-size-btn-sm");
