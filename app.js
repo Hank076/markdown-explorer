@@ -149,11 +149,16 @@ const fontBtns = document.querySelectorAll(".font-control-btn[data-font]");
 const fontSizeTitleEl = document.getElementById("settings-fontsize-title");
 const fontSizeDescriptionEl = document.getElementById("settings-fontsize-description");
 const fontSizeBtns = document.querySelectorAll(".font-control-btn[data-font-size]");
+const proseThemeBtns = document.querySelectorAll(".font-control-btn[data-prose-theme]");
+const proseThemeTitleEl = document.getElementById("settings-prose-theme-title");
+const proseThemeDescriptionEl = document.getElementById("settings-prose-theme-description");
 
 const langStorageKey = "markdown-explorer-lang";
 const mathRendererStorageKey = "markdown-explorer-math-renderer";
 const proseFontStorageKey = "markdown-explorer-prose-font";
 const fontSizeStorageKey = "markdown-explorer-font-size";
+const proseThemeStorageKey = "markdown-explorer-prose-theme";
+const PROSE_THEMES = Object.freeze(["default", "vue", "indigo", "bear"]);
 const langTagMap = { "zh-TW": "zh-Hant-TW", en: "en" };
 const MATH_RENDERERS = Object.freeze({ katex: "katex", mathjax: "mathjax" });
 let currentLang = localStorage.getItem(langStorageKey) || "zh-TW";
@@ -181,6 +186,9 @@ function normalizeFontSize(value) {
 
 let currentProseFont = normalizeProseFont(localStorage.getItem(proseFontStorageKey));
 let currentFontSize = normalizeFontSize(localStorage.getItem(fontSizeStorageKey));
+let currentProseTheme = PROSE_THEMES.includes(localStorage.getItem(proseThemeStorageKey))
+  ? localStorage.getItem(proseThemeStorageKey)
+  : "default";
 
 async function loadLocale(lang) {
   try {
@@ -334,6 +342,16 @@ function applyLocale(lang) {
   if (fontSizeBtnMd) fontSizeBtnMd.textContent = t("settings.fontSize.md");
   if (fontSizeBtnLg) fontSizeBtnLg.textContent = t("settings.fontSize.lg");
   if (fontSizeBtnXl) fontSizeBtnXl.textContent = t("settings.fontSize.xl");
+  if (proseThemeTitleEl) proseThemeTitleEl.textContent = t("settings.proseTheme.title");
+  if (proseThemeDescriptionEl) proseThemeDescriptionEl.textContent = t("settings.proseTheme.description");
+  const proseThemeBtnDefault = document.getElementById("prose-theme-btn-default");
+  const proseThemeBtnVue     = document.getElementById("prose-theme-btn-vue");
+  const proseThemeBtnIndigo  = document.getElementById("prose-theme-btn-indigo");
+  const proseThemeBtnBear    = document.getElementById("prose-theme-btn-bear");
+  if (proseThemeBtnDefault) proseThemeBtnDefault.textContent = t("settings.proseTheme.default");
+  if (proseThemeBtnVue)     proseThemeBtnVue.textContent     = t("settings.proseTheme.vue");
+  if (proseThemeBtnIndigo)  proseThemeBtnIndigo.textContent  = t("settings.proseTheme.indigo");
+  if (proseThemeBtnBear)    proseThemeBtnBear.textContent    = t("settings.proseTheme.bear");
 
   if (mathRendererSelect) {
     mathRendererSelect.setAttribute("aria-label", t("math.rendererAria"));
@@ -450,6 +468,17 @@ function applyFontSize(size) {
   rootEl.style.setProperty("--prose-font-size", `${size}px`);
   fontSizeBtns.forEach((btn) => {
     btn.classList.toggle("is-selected", btn.dataset.fontSize === size);
+  });
+}
+
+function applyProseTheme(key) {
+  if (key === "default") {
+    rootEl.removeAttribute("data-prose-theme");
+  } else {
+    rootEl.setAttribute("data-prose-theme", key);
+  }
+  proseThemeBtns.forEach((btn) => {
+    btn.classList.toggle("is-selected", btn.dataset.proseTheme === key);
   });
 }
 
@@ -1654,6 +1683,15 @@ fontSizeBtns.forEach((btn) => {
   });
 });
 
+proseThemeBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const key = PROSE_THEMES.includes(btn.dataset.proseTheme) ? btn.dataset.proseTheme : "default";
+    currentProseTheme = key;
+    localStorage.setItem(proseThemeStorageKey, key);
+    applyProseTheme(key);
+  });
+});
+
 if (themeToggle) {
   themeToggle.addEventListener("click", () => {
     const nextTheme = rootEl.getAttribute("data-theme") === "dark" ? "light" : "dark";
@@ -1826,6 +1864,7 @@ async function init() {
   applyTheme(getPreferredTheme());
   applyProseFont(currentProseFont);
   applyFontSize(currentFontSize);
+  applyProseTheme(currentProseTheme);
   initMermaid();
   appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   setSidebarCollapsed(false);
