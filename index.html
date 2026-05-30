@@ -79,6 +79,7 @@
             </aside>
           </div>
           <button id="settings-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="開啟設定"></button>
+          <button id="paste-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="貼上 Markdown"></button>
           <button id="lang-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="Switch to English">中</button>
           <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="切換主題"></button>
         </div>
@@ -175,6 +176,31 @@
           </div>
         </section>
       </div>
+    </dialog>
+
+    <dialog id="paste-dialog" class="paste-dialog" aria-labelledby="paste-title">
+      <form id="paste-form" class="paste-panel" method="dialog">
+        <div class="paste-header">
+          <div class="paste-header-copy">
+            <h2 id="paste-title" class="paste-title">貼上 Markdown</h2>
+            <p id="paste-description" class="paste-description">貼上內容後建立一個臨時預覽分頁。</p>
+          </div>
+          <button id="paste-close" class="theme-toggle-btn" type="button" aria-label="關閉貼上視窗"></button>
+        </div>
+        <label class="paste-field" for="paste-markdown">
+          <span id="paste-label" class="paste-label">Markdown 內容</span>
+          <textarea
+            id="paste-markdown"
+            class="paste-textarea"
+            spellcheck="false"
+            placeholder="# 標題&#10;&#10;在這裡貼上 Markdown..."
+          ></textarea>
+        </label>
+        <div class="paste-actions">
+          <button id="paste-clear" class="ghost" type="button">清空</button>
+          <button id="paste-render" class="primary" type="submit">預覽</button>
+        </div>
+      </form>
     </dialog>
 
     <script type="module" src="app.js"></script>

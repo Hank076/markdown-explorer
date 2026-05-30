@@ -127,10 +127,16 @@ const rootEl = document.documentElement;
 const searchShellEl = document.querySelector(".search-shell");
 
 const settingsToggle = document.getElementById("settings-toggle");
+const pasteToggle = document.getElementById("paste-toggle");
 const langToggle = document.getElementById("lang-toggle");
 const mathRendererSelect = document.getElementById("math-renderer");
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsCloseButton = document.getElementById("settings-close");
+const pasteDialog = document.getElementById("paste-dialog");
+const pasteForm = document.getElementById("paste-form");
+const pasteTextarea = document.getElementById("paste-markdown");
+const pasteCloseButton = document.getElementById("paste-close");
+const pasteClearButton = document.getElementById("paste-clear");
 const recentPanelEl = document.getElementById("recent-panel");
 const recentPanelToggleBtn = document.getElementById("recent-panel-toggle");
 const recentPanelBodyEl = document.getElementById("recent-panel-body");
@@ -143,6 +149,10 @@ const settingsTitleEl = document.getElementById("settings-title");
 const settingsDescriptionEl = document.getElementById("settings-description");
 const settingsRenderingTitleEl = document.getElementById("settings-rendering-title");
 const settingsRenderingDescriptionEl = document.getElementById("settings-rendering-description");
+const pasteTitleEl = document.getElementById("paste-title");
+const pasteDescriptionEl = document.getElementById("paste-description");
+const pasteLabelEl = document.getElementById("paste-label");
+const pasteRenderButton = document.getElementById("paste-render");
 const fontTitleEl = document.getElementById("settings-font-title");
 const fontDescriptionEl = document.getElementById("settings-font-description");
 const fontBtns = document.querySelectorAll(".font-control-btn[data-font]");
@@ -268,9 +278,19 @@ function applyLocale(lang) {
     settingsToggle.innerHTML = ICON_SETTINGS;
   }
 
+  if (pasteToggle) {
+    pasteToggle.setAttribute("aria-label", t("aria.pasteOpen"));
+    pasteToggle.innerHTML = ICON_PASTE;
+  }
+
   if (settingsCloseButton) {
     settingsCloseButton.setAttribute("aria-label", t("aria.settingsClose"));
     settingsCloseButton.innerHTML = "×";
+  }
+
+  if (pasteCloseButton) {
+    pasteCloseButton.setAttribute("aria-label", t("aria.pasteClose"));
+    pasteCloseButton.innerHTML = "×";
   }
 
   if (langToggle) {
@@ -324,6 +344,12 @@ function applyLocale(lang) {
   if (settingsRenderingDescriptionEl) {
     settingsRenderingDescriptionEl.textContent = t("settings.renderingDescription");
   }
+  if (pasteTitleEl) pasteTitleEl.textContent = t("paste.title");
+  if (pasteDescriptionEl) pasteDescriptionEl.textContent = t("paste.description");
+  if (pasteLabelEl) pasteLabelEl.textContent = t("paste.label");
+  if (pasteTextarea) pasteTextarea.placeholder = t("paste.placeholder");
+  if (pasteClearButton) pasteClearButton.textContent = t("paste.clear");
+  if (pasteRenderButton) pasteRenderButton.textContent = t("paste.render");
   if (fontTitleEl) fontTitleEl.textContent = t("settings.font.title");
   if (fontDescriptionEl) fontDescriptionEl.textContent = t("settings.font.description");
   const fontBtnDefault = document.getElementById("font-btn-default");
@@ -440,10 +466,12 @@ let katexLoadPromise = null;
 let mathJaxLoadPromise = null;
 let mathJaxTypesetPromise = Promise.resolve();
 let renderPreviewToken = 0;
+let pastedMarkdownSeed = 0;
 
 const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 const ICON_SETTINGS = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .66.39 1.26 1 1.51H21a2 2 0 1 1 0 4h-.09c-.66 0-1.26.39-1.51 1Z"/></svg>`;
+const ICON_PASTE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H9a2 2 0 0 0-2 2v2h10V4a2 2 0 0 0-2-2Z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>`;
 const ICON_PANEL_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m16 15-3-3 3-3"/></svg>`;
 const ICON_PANEL_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m12 9 3 3-3 3"/></svg>`;
 const ICON_TOC_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>`;
@@ -715,6 +743,29 @@ function closeSettingsDialog() {
     settingsDialog.close();
   } else {
     settingsDialog.removeAttribute("open");
+  }
+}
+
+function openPasteDialog() {
+  if (!pasteDialog) return;
+  if (pasteDialog.open) return;
+  if (typeof pasteDialog.showModal === "function") {
+    pasteDialog.showModal();
+  } else {
+    pasteDialog.setAttribute("open", "");
+  }
+  if (pasteToggle) {
+    pasteToggle.setAttribute("aria-pressed", "true");
+  }
+  requestAnimationFrame(() => pasteTextarea?.focus());
+}
+
+function closePasteDialog() {
+  if (!pasteDialog) return;
+  if (typeof pasteDialog.close === "function") {
+    pasteDialog.close();
+  } else {
+    pasteDialog.removeAttribute("open");
   }
 }
 
@@ -1399,8 +1450,13 @@ function renderTabs() {
 }
 
 function closeFile(path) {
+  const file = openFiles.get(path);
   openFiles.delete(path);
   scrollPositions.delete(path);
+  if (file?.isTemporary) {
+    documentIndex.delete(path);
+    runSearch(searchQuery);
+  }
   const index = openOrder.indexOf(path);
   if (index >= 0) openOrder.splice(index, 1);
   if (activePath === path) activePath = openOrder[0] ?? null;
@@ -1409,6 +1465,11 @@ function closeFile(path) {
 }
 
 function closeAllFiles() {
+  openOrder.forEach((path) => {
+    if (openFiles.get(path)?.isTemporary) {
+      documentIndex.delete(path);
+    }
+  });
   openFiles.clear();
   openOrder.length = 0;
   scrollPositions.clear();
@@ -1442,6 +1503,39 @@ async function openFile(fileHandle, path, sourceButton) {
   if (rootHandle) {
     await saveHistory(rootHandle.name, rootHandle, [{ name: file.name, path }]);
   }
+}
+
+function getPastedMarkdownTitle(content) {
+  const heading = content.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/m)?.[1]?.trim();
+  const firstLine = heading || content.split(/\r?\n/).find((line) => line.trim())?.trim();
+  const title = (firstLine || t("paste.defaultTitle"))
+    .replace(/[`*_~[\]()#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return (title || t("paste.defaultTitle")).slice(0, 40);
+}
+
+function openPastedMarkdown(content) {
+  const normalizedContent = content.trim();
+  if (!normalizedContent) {
+    showToast(t("paste.empty"));
+    return;
+  }
+
+  pastedMarkdownSeed += 1;
+  const name = `${getPastedMarkdownTitle(normalizedContent)}.md`;
+  const path = `pasted/${Date.now()}-${pastedMarkdownSeed}.md`;
+  openFiles.set(path, {
+    name,
+    handle: null,
+    content: normalizedContent,
+    renderedHtml: null,
+    isTemporary: true,
+  });
+  documentIndex.set(path, buildDocumentRecord({ path, content: normalizedContent }));
+  openOrder.push(path);
+  setActiveFile(path);
+  setStatus(t("status.pasted"));
 }
 
 async function findFileHandle(path) {
@@ -1755,9 +1849,23 @@ if (settingsToggle) {
     openSettingsDialog();
   });
 }
+if (pasteToggle) {
+  pasteToggle.addEventListener("click", () => {
+    if (pasteDialog?.open) {
+      closePasteDialog();
+      return;
+    }
+    openPasteDialog();
+  });
+}
 if (settingsCloseButton) {
   settingsCloseButton.addEventListener("click", () => {
     closeSettingsDialog();
+  });
+}
+if (pasteCloseButton) {
+  pasteCloseButton.addEventListener("click", () => {
+    closePasteDialog();
   });
 }
 if (settingsDialog) {
@@ -1770,6 +1878,36 @@ if (settingsDialog) {
   settingsDialog.addEventListener("click", (event) => {
     if (event.target === settingsDialog) {
       closeSettingsDialog();
+    }
+  });
+}
+if (pasteDialog) {
+  pasteDialog.addEventListener("close", () => {
+    if (pasteToggle) {
+      pasteToggle.setAttribute("aria-pressed", "false");
+      pasteToggle.focus();
+    }
+  });
+  pasteDialog.addEventListener("click", (event) => {
+    if (event.target === pasteDialog) {
+      closePasteDialog();
+    }
+  });
+}
+if (pasteClearButton) {
+  pasteClearButton.addEventListener("click", () => {
+    if (pasteTextarea) {
+      pasteTextarea.value = "";
+      pasteTextarea.focus();
+    }
+  });
+}
+if (pasteForm) {
+  pasteForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    openPastedMarkdown(pasteTextarea?.value ?? "");
+    if ((pasteTextarea?.value ?? "").trim()) {
+      closePasteDialog();
     }
   });
 }

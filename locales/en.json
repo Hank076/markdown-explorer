@@ -15,6 +15,7 @@
   "status.readingFile": "Reading file: {path}",
   "status.indexing": "Building search index...",
   "status.opened": "Opened: {path}",
+  "status.pasted": "Created pasted preview",
   "status.cancelled": "Folder selection cancelled",
   "status.unsupported": "File System Access API is not supported in this browser",
   "aria.sidebar": "File Explorer",
@@ -28,6 +29,8 @@
   "aria.themeToDark": "Switch to dark mode",
   "aria.settingsOpen": "Open settings",
   "aria.settingsClose": "Close settings",
+  "aria.pasteOpen": "Paste Markdown",
+  "aria.pasteClose": "Close paste dialog",
   "tab.closeLabel": "Close {name}",
   "tab.closeAll": "Close all",
   "aria.closeAllTabs": "Close all tabs",
@@ -75,5 +78,13 @@
   "settings.proseTheme.default": "Default",
   "settings.proseTheme.vue": "Vue",
   "settings.proseTheme.indigo": "Indigo",
-  "settings.proseTheme.bear": "Bear"
+  "settings.proseTheme.bear": "Bear",
+  "paste.title": "Paste Markdown",
+  "paste.description": "Create a temporary preview tab from pasted content.",
+  "paste.label": "Markdown content",
+  "paste.placeholder": "# Heading\n\nPaste Markdown here...",
+  "paste.clear": "Clear",
+  "paste.render": "Render preview",
+  "paste.empty": "Paste Markdown content first",
+  "paste.defaultTitle": "Pasted Preview"
 }

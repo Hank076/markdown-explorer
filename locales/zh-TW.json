@@ -15,6 +15,7 @@
   "status.readingFile": "讀取檔案：{path}",
   "status.indexing": "建立搜尋索引中...",
   "status.opened": "已開啟：{path}",
+  "status.pasted": "已建立貼上預覽",
   "status.cancelled": "已取消選擇資料夾",
   "status.unsupported": "此瀏覽器不支援 File System Access API",
   "aria.sidebar": "檔案總管",
@@ -28,6 +29,8 @@
   "aria.themeToDark": "切換為暗色模式",
   "aria.settingsOpen": "開啟設定",
   "aria.settingsClose": "關閉設定",
+  "aria.pasteOpen": "貼上 Markdown",
+  "aria.pasteClose": "關閉貼上視窗",
   "tab.closeLabel": "關閉 {name}",
   "tab.closeAll": "關閉全部",
   "aria.closeAllTabs": "關閉所有分頁",
@@ -75,5 +78,13 @@
   "settings.proseTheme.default": "預設",
   "settings.proseTheme.vue": "Vue",
   "settings.proseTheme.indigo": "Indigo",
-  "settings.proseTheme.bear": "Bear"
+  "settings.proseTheme.bear": "Bear",
+  "paste.title": "貼上 Markdown",
+  "paste.description": "貼上內容後建立一個臨時預覽分頁。",
+  "paste.label": "Markdown 內容",
+  "paste.placeholder": "# 標題\n\n在這裡貼上 Markdown...",
+  "paste.clear": "清空",
+  "paste.render": "渲染預覽",
+  "paste.empty": "請先貼上 Markdown 內容",
+  "paste.defaultTitle": "貼上預覽"
 }
