@@ -2,6 +2,7 @@ import { marked } from "./libs/marked/marked.esm.js";
 import { splitDocumentLink, resolveWorkspacePath } from "./app/workspace/path-utils.js";
 import { createAssetUrlRegistry, isWorkspaceRelativeHref, resolveAssetUrl } from "./app/workspace/assets.js";
 import { buildDocumentRecord, searchDocumentIndex } from "./app/workspace/document-index.js";
+import { reloadOpenFileContent } from "./app/workspace/open-files.js";
 
 // ── IndexedDB History Helpers ──────────────────────────────────────────────
 
@@ -118,6 +119,7 @@ const viewerContainer = document.getElementById("viewer-container");
 const emptyEl = document.getElementById("empty");
 const statusText = document.getElementById("status-text");
 const closeAllTabsBtn = document.getElementById("close-all-tabs");
+const reloadFileBtn = document.getElementById("reload-file");
 const appEl = document.querySelector(".app");
 const sidebarEl = document.querySelector(".sidebar");
 const resizerEl = document.querySelector(".sidebar-resizer");
@@ -224,6 +226,14 @@ function t(key, vars = {}) {
   return str;
 }
 
+function setButtonTooltip(button, label) {
+  if (!button) return;
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+  button.dataset.tooltip = label;
+  button.classList.add("tooltip-btn");
+}
+
 function applyLocale(lang) {
   document.documentElement.lang = langTagMap[lang] || lang;
 
@@ -234,7 +244,17 @@ function applyLocale(lang) {
   if (hintEl) hintEl.textContent = t("sidebar.hint");
 
   const copyrightEl = document.querySelector(".sidebar-footer .copyright");
-  if (copyrightEl) copyrightEl.textContent = t("sidebar.copyright");
+  if (copyrightEl) {
+    copyrightEl.textContent = "";
+    copyrightEl.append(`${t("sidebar.copyrightPrefix")} `);
+    const authorLink = document.createElement("a");
+    authorLink.href = "https://blog.hankchen.info/";
+    authorLink.target = "_blank";
+    authorLink.rel = "noopener noreferrer";
+    authorLink.className = "copyright-link";
+    authorLink.textContent = t("sidebar.author");
+    copyrightEl.appendChild(authorLink);
+  }
 
   const emptyTitle = document.getElementById("empty-title");
   if (emptyTitle) emptyTitle.textContent = t("empty.title");
@@ -264,32 +284,32 @@ function applyLocale(lang) {
 
   if (tocToggleBtn) {
     const isCollapsed = tocEl.classList.contains("collapsed");
-    tocToggleBtn.setAttribute("aria-label", isCollapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
+    setButtonTooltip(tocToggleBtn, isCollapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
     tocToggleBtn.innerHTML = isCollapsed ? ICON_TOC_OPEN : ICON_TOC_CLOSE;
   }
 
   const currentTheme = rootEl.getAttribute("data-theme");
   if (themeToggle && currentTheme) {
-    themeToggle.setAttribute("aria-label", currentTheme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark"));
+    setButtonTooltip(themeToggle, currentTheme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark"));
   }
 
   if (settingsToggle) {
-    settingsToggle.setAttribute("aria-label", t("aria.settingsOpen"));
+    setButtonTooltip(settingsToggle, t("aria.settingsOpen"));
     settingsToggle.innerHTML = ICON_SETTINGS;
   }
 
   if (pasteToggle) {
-    pasteToggle.setAttribute("aria-label", t("aria.pasteOpen"));
+    setButtonTooltip(pasteToggle, t("aria.pasteOpen"));
     pasteToggle.innerHTML = ICON_PASTE;
   }
 
   if (settingsCloseButton) {
-    settingsCloseButton.setAttribute("aria-label", t("aria.settingsClose"));
+    setButtonTooltip(settingsCloseButton, t("aria.settingsClose"));
     settingsCloseButton.innerHTML = "×";
   }
 
   if (pasteCloseButton) {
-    pasteCloseButton.setAttribute("aria-label", t("aria.pasteClose"));
+    setButtonTooltip(pasteCloseButton, t("aria.pasteClose"));
     pasteCloseButton.innerHTML = "×";
   }
 
@@ -303,6 +323,11 @@ function applyLocale(lang) {
   if (closeAllTabsBtn) {
     closeAllTabsBtn.textContent = t("tab.closeAll");
     closeAllTabsBtn.setAttribute("aria-label", t("aria.closeAllTabs"));
+  }
+
+  if (reloadFileBtn) {
+    setButtonTooltip(reloadFileBtn, t("aria.reloadFile"));
+    reloadFileBtn.innerHTML = ICON_RELOAD;
   }
 
   const recentTitleEl = emptyEl?.querySelector(".recent-title");
@@ -399,7 +424,7 @@ async function setLang(lang) {
   applyTheme(rootEl.getAttribute("data-theme") || getPreferredTheme());
   if (sidebarToggle) {
     const isCollapsed = appEl.classList.contains("sidebar-collapsed");
-    sidebarToggle.setAttribute("aria-label", isCollapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
+    setButtonTooltip(sidebarToggle, isCollapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
   }
   renderTabs();
 }
@@ -472,6 +497,7 @@ const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
 const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 const ICON_SETTINGS = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .66.39 1.26 1 1.51H21a2 2 0 1 1 0 4h-.09c-.66 0-1.26.39-1.51 1Z"/></svg>`;
 const ICON_PASTE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H9a2 2 0 0 0-2 2v2h10V4a2 2 0 0 0-2-2Z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>`;
+const ICON_RELOAD = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>`;
 const ICON_PANEL_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m16 15-3-3 3-3"/></svg>`;
 const ICON_PANEL_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><path d="m12 9 3 3-3 3"/></svg>`;
 const ICON_TOC_CLOSE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>`;
@@ -514,7 +540,7 @@ function applyTheme(theme) {
   rootEl.setAttribute("data-theme", theme);
   if (themeToggle) {
     themeToggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-    themeToggle.setAttribute("aria-label", theme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark"));
+    setButtonTooltip(themeToggle, theme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark"));
     themeToggle.innerHTML = theme === "dark" ? ICON_SUN : ICON_MOON;
   }
 }
@@ -787,7 +813,7 @@ function showToast(message) {
   msg.textContent = message;
   const closeBtn = document.createElement("button");
   closeBtn.className = "toast-close";
-  closeBtn.setAttribute("aria-label", t("aria.toastClose") || "關閉通知");
+  setButtonTooltip(closeBtn, t("aria.toastClose") || "關閉通知");
   closeBtn.textContent = "×";
   closeBtn.addEventListener("click", () => toast.remove());
   toast.appendChild(msg);
@@ -981,7 +1007,7 @@ function setTOCCollapsed(collapsed) {
   tocEl.classList.toggle("collapsed", collapsed);
   if (tocToggleBtn) {
     tocToggleBtn.setAttribute("aria-pressed", collapsed ? "true" : "false");
-    tocToggleBtn.setAttribute("aria-label", collapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
+    setButtonTooltip(tocToggleBtn, collapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
     tocToggleBtn.innerHTML = collapsed ? ICON_TOC_OPEN : ICON_TOC_CLOSE;
   }
 }
@@ -1438,7 +1464,7 @@ function renderTabs() {
     const close = document.createElement("button");
     close.className = "close-tab";
     close.draggable = false;
-    close.setAttribute("aria-label", t("tab.closeLabel", { name: file.name }));
+    setButtonTooltip(close, t("tab.closeLabel", { name: file.name }));
     close.textContent = "×";
     close.addEventListener("click", (event) => { event.stopPropagation(); closeFile(path); });
     tab.appendChild(close);
@@ -1447,6 +1473,13 @@ function renderTabs() {
   });
   tabsEl.appendChild(fragment);
   updateTabDragIndicators();
+  updateReloadFileButton();
+}
+
+function updateReloadFileButton() {
+  if (!reloadFileBtn) return;
+  const file = activePath ? openFiles.get(activePath) : null;
+  reloadFileBtn.disabled = !file?.handle;
 }
 
 function closeFile(path) {
@@ -1479,6 +1512,7 @@ function closeAllFiles() {
   renderTabs();
   renderPreview();
   setStatus(t("status.ready"));
+  updateReloadFileButton();
 }
 
 function setActiveFile(path) {
@@ -1502,6 +1536,40 @@ async function openFile(fileHandle, path, sourceButton) {
   setStatus(t("status.opened", { path }));
   if (rootHandle) {
     await saveHistory(rootHandle.name, rootHandle, [{ name: file.name, path }]);
+  }
+}
+
+async function reloadActiveFile() {
+  if (!activePath) return;
+  const file = openFiles.get(activePath);
+  if (!file?.handle) {
+    showToast(t("reload.notAvailable"));
+    updateReloadFileButton();
+    return;
+  }
+
+  const currentPath = activePath;
+  scrollPositions.set(currentPath, viewerEl.scrollTop);
+  setStatus(t("reload.loading", { path: currentPath }), true);
+  reloadFileBtn.disabled = true;
+  try {
+    const result = await reloadOpenFileContent(openFiles, currentPath);
+    if (!result.ok) {
+      showToast(t("reload.notAvailable"));
+      return;
+    }
+    documentIndex.set(currentPath, buildDocumentRecord({ path: currentPath, content: result.content }));
+    runSearch(searchQuery);
+    if (activePath === currentPath) {
+      renderPreview();
+    }
+    setStatus(t("reload.loaded", { path: currentPath }));
+  } catch (err) {
+    console.warn("[preview] Failed to reload file:", err);
+    setStatus(t("reload.failed", { path: currentPath }));
+    showToast(t("reload.failed", { path: currentPath }));
+  } finally {
+    updateReloadFileButton();
   }
 }
 
@@ -1808,7 +1876,7 @@ function setSidebarCollapsed(collapsed) {
   } else appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   if (sidebarToggle) {
     sidebarToggle.setAttribute("aria-pressed", collapsed ? "true" : "false");
-    sidebarToggle.setAttribute("aria-label", collapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
+    setButtonTooltip(sidebarToggle, collapsed ? t("aria.sidebarExpand") : t("aria.sidebarCollapse"));
     sidebarToggle.innerHTML = collapsed ? ICON_PANEL_OPEN : ICON_PANEL_CLOSE;
   }
 }
@@ -1840,6 +1908,7 @@ if (resizerEl) {
 }
 
 if (langToggle) langToggle.addEventListener("click", () => setLang(currentLang === "zh-TW" ? "en" : "zh-TW"));
+if (reloadFileBtn) reloadFileBtn.addEventListener("click", () => void reloadActiveFile());
 if (settingsToggle) {
   settingsToggle.addEventListener("click", () => {
     if (settingsDialog?.open) {

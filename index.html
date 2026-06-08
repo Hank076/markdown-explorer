@@ -24,7 +24,7 @@
               <span id="open-folder-label">開啟資料夾</span>
             </button>
           </div>
-          <button id="sidebar-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="收合側邊欄"></button>
+          <button id="sidebar-toggle" class="theme-toggle-btn tooltip-btn" type="button" aria-pressed="false" aria-label="收合側邊欄" title="收合側邊欄" data-tooltip="收合側邊欄"></button>
         </div>
         <span class="sidebar-collapsed-label" aria-hidden="true">Markdown Explorer</span>
         <div class="sidebar-body">
@@ -45,7 +45,7 @@
                 <span>GitHub</span>
               </a>
               <span class="footer-separator" aria-hidden="true">·</span>
-              <p class="copyright">MIT © 2026 Hank</p>
+              <p class="copyright">MIT © 2026 <a href="https://blog.hankchen.info/" target="_blank" rel="noopener noreferrer" class="copyright-link">Hank</a></p>
             </div>
           </div>
         </div>
@@ -56,6 +56,7 @@
         <div class="topbar">
           <div id="tabs" class="tabs" role="tablist" aria-label="已開啟檔案"></div>
           <button id="close-all-tabs" class="close-all-tabs-btn" type="button" aria-label="關閉所有分頁" hidden></button>
+          <button id="reload-file" class="theme-toggle-btn tooltip-btn" type="button" aria-label="重新載入目前檔案" title="重新載入目前檔案" data-tooltip="重新載入目前檔案" disabled></button>
           <div class="search-shell">
             <label class="search-box" for="workspace-search">
               <span id="workspace-search-label" class="sr-only">搜尋文件</span>
@@ -78,10 +79,10 @@
               <h2 id="search-results-label" class="sr-only">搜尋結果</h2>
             </aside>
           </div>
-          <button id="settings-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="開啟設定"></button>
-          <button id="paste-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="貼上 Markdown"></button>
+          <button id="settings-toggle" class="theme-toggle-btn tooltip-btn" type="button" aria-pressed="false" aria-label="開啟設定" title="開啟設定" data-tooltip="開啟設定"></button>
+          <button id="paste-toggle" class="theme-toggle-btn tooltip-btn" type="button" aria-pressed="false" aria-label="貼上 Markdown" title="貼上 Markdown" data-tooltip="貼上 Markdown"></button>
           <button id="lang-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="Switch to English">中</button>
-          <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-pressed="false" aria-label="切換主題"></button>
+          <button id="theme-toggle" class="theme-toggle-btn tooltip-btn" type="button" aria-pressed="false" aria-label="切換主題" title="切換主題" data-tooltip="切換主題"></button>
         </div>
         <section class="viewer" aria-live="polite">
           <div id="empty" class="empty-state">
@@ -98,7 +99,7 @@
           <div id="viewer-container" class="viewer-container" hidden>
             <article id="preview" class="preview" aria-label="Markdown 預覽"></article>
             <aside id="toc" class="toc" aria-label="目錄">
-              <button id="toc-toggle" class="toc-toggle-btn" type="button" aria-label="切換目錄"></button>
+              <button id="toc-toggle" class="toc-toggle-btn tooltip-btn" type="button" aria-label="切換目錄" title="切換目錄" data-tooltip="切換目錄"></button>
               <span id="toc-collapsed-label" class="toc-collapsed-label" aria-hidden="true">目錄</span>
               <div class="toc-content">
                 <div class="toc-title">目錄</div>
@@ -121,7 +122,7 @@
             <h2 id="settings-title" class="settings-title">設定</h2>
             <p id="settings-description" class="settings-description">管理預覽與介面設定。</p>
           </div>
-          <button id="settings-close" class="theme-toggle-btn" type="button" aria-label="關閉設定"></button>
+          <button id="settings-close" class="theme-toggle-btn tooltip-btn" type="button" aria-label="關閉設定" title="關閉設定" data-tooltip="關閉設定"></button>
         </div>
 
         <section class="settings-section" aria-labelledby="settings-rendering-title">
@@ -185,7 +186,7 @@
             <h2 id="paste-title" class="paste-title">貼上 Markdown</h2>
             <p id="paste-description" class="paste-description">貼上內容後建立一個臨時預覽分頁。</p>
           </div>
-          <button id="paste-close" class="theme-toggle-btn" type="button" aria-label="關閉貼上視窗"></button>
+          <button id="paste-close" class="theme-toggle-btn tooltip-btn" type="button" aria-label="關閉貼上視窗" title="關閉貼上視窗" data-tooltip="關閉貼上視窗"></button>
         </div>
         <label class="paste-field" for="paste-markdown">
           <span id="paste-label" class="paste-label">Markdown 內容</span>
