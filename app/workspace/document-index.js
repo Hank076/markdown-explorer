@@ -121,12 +121,15 @@ export function extractHeadingMatches(content = "") {
 export function buildDocumentRecord({ path, content }) {
   const headingMatches = extractHeadingMatches(content);
   const headings = buildHeadingRecords(headingMatches);
+  const plainText = stripMarkdown(content);
 
   return {
     path,
+    lowerPath: path.toLowerCase(),
     name: path.split("/").at(-1),
     content,
-    plainText: stripMarkdown(content),
+    plainText,
+    lowerText: plainText.toLowerCase(),
     headings,
   };
 }
@@ -142,8 +145,7 @@ export function searchDocumentIndex(records, rawQuery) {
   const content = [];
 
   for (const record of records) {
-    const lowerPath = record.path.toLowerCase();
-    if (lowerPath.includes(query)) {
+    if (record.lowerPath.includes(query)) {
       files.push(record);
     }
 
@@ -153,8 +155,7 @@ export function searchDocumentIndex(records, rawQuery) {
       }
     }
 
-    const lowerText = record.plainText.toLowerCase();
-    const matchIndex = lowerText.indexOf(query);
+    const matchIndex = record.lowerText.indexOf(query);
     if (matchIndex >= 0) {
       const excerptStart = Math.max(matchIndex - 30, 0);
       content.push({
@@ -165,23 +166,34 @@ export function searchDocumentIndex(records, rawQuery) {
     }
   }
 
-  files.sort((a, b) => {
-    const rankA = rankPath(a.path, query);
-    const rankB = rankPath(b.path, query);
-    return rankA.matchIndex - rankB.matchIndex || rankA.length - rankB.length || a.path.localeCompare(b.path, "zh-Hant");
-  });
+  const filesSorted = files
+    .map((item) => ({ item, rank: rankPath(item.path, query) }))
+    .sort((a, b) =>
+      a.rank.matchIndex - b.rank.matchIndex ||
+      a.rank.length - b.rank.length ||
+      a.item.path.localeCompare(b.item.path, "zh-Hant")
+    );
+  filesSorted.forEach(({ item }, i) => { files[i] = item; });
 
-  headings.sort((a, b) => {
-    const rankA = rankPath(a.path, query);
-    const rankB = rankPath(b.path, query);
-    return rankA.matchIndex - rankB.matchIndex || rankA.length - rankB.length || a.path.localeCompare(b.path, "zh-Hant") || a.heading.id.localeCompare(b.heading.id, "zh-Hant");
-  });
+  headings
+    .map((item) => ({ item, rank: rankPath(item.path, query) }))
+    .sort((a, b) =>
+      a.rank.matchIndex - b.rank.matchIndex ||
+      a.rank.length - b.rank.length ||
+      a.item.path.localeCompare(b.item.path, "zh-Hant") ||
+      a.item.heading.id.localeCompare(b.item.heading.id, "zh-Hant")
+    )
+    .forEach(({ item }, i) => { headings[i] = item; });
 
-  content.sort((a, b) => {
-    const rankA = rankPath(a.path, query);
-    const rankB = rankPath(b.path, query);
-    return rankA.matchIndex - rankB.matchIndex || rankA.length - rankB.length || a.path.localeCompare(b.path, "zh-Hant") || a.matchIndex - b.matchIndex;
-  });
+  content
+    .map((item) => ({ item, rank: rankPath(item.path, query) }))
+    .sort((a, b) =>
+      a.rank.matchIndex - b.rank.matchIndex ||
+      a.rank.length - b.rank.length ||
+      a.item.path.localeCompare(b.item.path, "zh-Hant") ||
+      a.item.matchIndex - b.item.matchIndex
+    )
+    .forEach(({ item }, i) => { content[i] = item; });
 
   return { files, headings, content };
 }

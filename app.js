@@ -3,6 +3,7 @@ import { splitDocumentLink, resolveWorkspacePath } from "./app/workspace/path-ut
 import { createAssetUrlRegistry, isWorkspaceRelativeHref, resolveAssetUrl } from "./app/workspace/assets.js";
 import { buildDocumentRecord, searchDocumentIndex } from "./app/workspace/document-index.js";
 import { reloadOpenFileContent } from "./app/workspace/open-files.js";
+import { slugifyHeading } from "./app/workspace/headings.js";
 
 // ── IndexedDB History Helpers ──────────────────────────────────────────────
 
@@ -186,14 +187,19 @@ const FONT_STACKS = Object.freeze({
   serif: 'serif',
   sans: 'sans-serif',
 });
-const FONT_SIZES = Object.freeze({ "14": "14", "16": "16", "18": "18", "20": "20" });
+const FONT_SIZES = Object.freeze(["14", "16", "18", "20"]);
+
+const TOC_SCROLL_OFFSET = 64;
+const SIDEBAR_COLLAPSED_WIDTH = 40;
+const SIDEBAR_MIN_WIDTH = 160;
+const SIDEBAR_MAX_WIDTH = 600;
 
 function normalizeProseFont(value) {
   return FONT_STACKS[value] ? value : "default";
 }
 
 function normalizeFontSize(value) {
-  return FONT_SIZES[value] ?? "16";
+  return FONT_SIZES.includes(value) ? value : "16";
 }
 
 let currentProseFont = normalizeProseFont(localStorage.getItem(proseFontStorageKey));
@@ -237,12 +243,12 @@ function setButtonTooltip(button, label) {
 function applyLocale(lang) {
   document.documentElement.lang = langTagMap[lang] || lang;
 
-  const openFolderLabel = document.getElementById("open-folder-label");
-  if (openFolderLabel) openFolderLabel.textContent = t("btn.openFolder");
+  // data-i18n driven: set textContent for all plain-text nodes
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
 
-  const hintEl = document.querySelector(".sidebar-footer .hint");
-  if (hintEl) hintEl.textContent = t("sidebar.hint");
-
+  // Copyright link requires DOM construction — not suitable for data-i18n
   const copyrightEl = document.querySelector(".sidebar-footer .copyright");
   if (copyrightEl) {
     copyrightEl.textContent = "";
@@ -256,43 +262,26 @@ function applyLocale(lang) {
     copyrightEl.appendChild(authorLink);
   }
 
-  const emptyTitle = document.getElementById("empty-title");
-  if (emptyTitle) emptyTitle.textContent = t("empty.title");
-
-  const emptyDesc = document.getElementById("empty-desc");
-  if (emptyDesc) emptyDesc.textContent = t("empty.desc");
-
-  const f1 = document.getElementById("empty-feature1");
-  if (f1) f1.textContent = t("empty.feature1");
-
-  const f2 = document.getElementById("empty-feature2");
-  if (f2) f2.textContent = t("empty.feature2");
-
-  const f3 = document.getElementById("empty-feature3");
-  if (f3) f3.textContent = t("empty.feature3");
-
+  // aria-label / attributes
   if (sidebarEl) sidebarEl.setAttribute("aria-label", t("aria.sidebar"));
   if (tabsEl) tabsEl.setAttribute("aria-label", t("aria.tabs"));
   if (previewEl) previewEl.setAttribute("aria-label", t("aria.preview"));
   if (tocEl) tocEl.setAttribute("aria-label", t("toc.title"));
 
-  const tocTitleEl = tocEl?.querySelector(".toc-title");
-  if (tocTitleEl) tocTitleEl.textContent = t("toc.title");
-
-  const tocCollapsedLabel = document.getElementById("toc-collapsed-label");
-  if (tocCollapsedLabel) tocCollapsedLabel.textContent = t("toc.title");
-
+  // TOC toggle icon — state-dependent
   if (tocToggleBtn) {
     const isCollapsed = tocEl.classList.contains("collapsed");
     setButtonTooltip(tocToggleBtn, isCollapsed ? t("aria.tocExpand") : t("aria.tocCollapse"));
     tocToggleBtn.innerHTML = isCollapsed ? ICON_TOC_OPEN : ICON_TOC_CLOSE;
   }
 
+  // Theme toggle tooltip — state-dependent
   const currentTheme = rootEl.getAttribute("data-theme");
   if (themeToggle && currentTheme) {
     setButtonTooltip(themeToggle, currentTheme === "dark" ? t("aria.themeToLight") : t("aria.themeToDark"));
   }
 
+  // Icon buttons — innerHTML + tooltip
   if (settingsToggle) {
     setButtonTooltip(settingsToggle, t("aria.settingsOpen"));
     settingsToggle.innerHTML = ICON_SETTINGS;
@@ -313,6 +302,12 @@ function applyLocale(lang) {
     pasteCloseButton.innerHTML = "×";
   }
 
+  if (reloadFileBtn) {
+    setButtonTooltip(reloadFileBtn, t("aria.reloadFile"));
+    reloadFileBtn.innerHTML = ICON_RELOAD;
+  }
+
+  // lang toggle — aria-pressed state
   if (langToggle) {
     langToggle.textContent = t("lang.current");
     langToggle.setAttribute("aria-label", t("lang.switchLabel"));
@@ -325,85 +320,21 @@ function applyLocale(lang) {
     closeAllTabsBtn.setAttribute("aria-label", t("aria.closeAllTabs"));
   }
 
-  if (reloadFileBtn) {
-    setButtonTooltip(reloadFileBtn, t("aria.reloadFile"));
-    reloadFileBtn.innerHTML = ICON_RELOAD;
-  }
-
+  // recent title in empty state — dynamically generated element
   const recentTitleEl = emptyEl?.querySelector(".recent-title");
   if (recentTitleEl) recentTitleEl.textContent = t("recent.title");
 
-  const recentPanelLabelEl = document.getElementById("recent-panel-label");
-  if (recentPanelLabelEl) recentPanelLabelEl.textContent = t("sidebar.recentPanel");
-
   if (workspaceEl) workspaceEl.dataset.dragHint = t("dragdrop.hint");
+
+  // placeholder / aria-label attributes
   if (workspaceSearchInput) {
     workspaceSearchInput.placeholder = t("search.placeholder");
     workspaceSearchInput.setAttribute("aria-label", t("search.label"));
   }
 
-  if (workspaceSearchLabel) {
-    workspaceSearchLabel.textContent = t("search.label");
-  }
-
-  if (searchResultsLabel) {
-    searchResultsLabel.textContent = t("search.results");
-  }
-
-  if (mathRendererLabelEl) {
-    mathRendererLabelEl.textContent = t("math.rendererLabel");
-  }
-
-  if (settingsTitleEl) {
-    settingsTitleEl.textContent = t("settings.title");
-  }
-
-  if (settingsDescriptionEl) {
-    settingsDescriptionEl.textContent = t("settings.description");
-  }
-
-  if (settingsRenderingTitleEl) {
-    settingsRenderingTitleEl.textContent = t("settings.renderingTitle");
-  }
-
-  if (settingsRenderingDescriptionEl) {
-    settingsRenderingDescriptionEl.textContent = t("settings.renderingDescription");
-  }
-  if (pasteTitleEl) pasteTitleEl.textContent = t("paste.title");
-  if (pasteDescriptionEl) pasteDescriptionEl.textContent = t("paste.description");
-  if (pasteLabelEl) pasteLabelEl.textContent = t("paste.label");
   if (pasteTextarea) pasteTextarea.placeholder = t("paste.placeholder");
-  if (pasteClearButton) pasteClearButton.textContent = t("paste.clear");
-  if (pasteRenderButton) pasteRenderButton.textContent = t("paste.render");
-  if (fontTitleEl) fontTitleEl.textContent = t("settings.font.title");
-  if (fontDescriptionEl) fontDescriptionEl.textContent = t("settings.font.description");
-  const fontBtnDefault = document.getElementById("font-btn-default");
-  const fontBtnSerif = document.getElementById("font-btn-serif");
-  const fontBtnSans = document.getElementById("font-btn-sans");
-  if (fontBtnDefault) fontBtnDefault.textContent = t("settings.font.default");
-  if (fontBtnSerif) fontBtnSerif.textContent = t("settings.font.serif");
-  if (fontBtnSans) fontBtnSans.textContent = t("settings.font.sans");
-  if (fontSizeTitleEl) fontSizeTitleEl.textContent = t("settings.fontSize.title");
-  if (fontSizeDescriptionEl) fontSizeDescriptionEl.textContent = t("settings.fontSize.description");
-  const fontSizeBtnSm = document.getElementById("font-size-btn-sm");
-  const fontSizeBtnMd = document.getElementById("font-size-btn-md");
-  const fontSizeBtnLg = document.getElementById("font-size-btn-lg");
-  const fontSizeBtnXl = document.getElementById("font-size-btn-xl");
-  if (fontSizeBtnSm) fontSizeBtnSm.textContent = t("settings.fontSize.sm");
-  if (fontSizeBtnMd) fontSizeBtnMd.textContent = t("settings.fontSize.md");
-  if (fontSizeBtnLg) fontSizeBtnLg.textContent = t("settings.fontSize.lg");
-  if (fontSizeBtnXl) fontSizeBtnXl.textContent = t("settings.fontSize.xl");
-  if (proseThemeTitleEl) proseThemeTitleEl.textContent = t("settings.proseTheme.title");
-  if (proseThemeDescriptionEl) proseThemeDescriptionEl.textContent = t("settings.proseTheme.description");
-  const proseThemeBtnDefault = document.getElementById("prose-theme-btn-default");
-  const proseThemeBtnVue     = document.getElementById("prose-theme-btn-vue");
-  const proseThemeBtnIndigo  = document.getElementById("prose-theme-btn-indigo");
-  const proseThemeBtnBear    = document.getElementById("prose-theme-btn-bear");
-  if (proseThemeBtnDefault) proseThemeBtnDefault.textContent = t("settings.proseTheme.default");
-  if (proseThemeBtnVue)     proseThemeBtnVue.textContent     = t("settings.proseTheme.vue");
-  if (proseThemeBtnIndigo)  proseThemeBtnIndigo.textContent  = t("settings.proseTheme.indigo");
-  if (proseThemeBtnBear)    proseThemeBtnBear.textContent    = t("settings.proseTheme.bear");
 
+  // select options + aria-label
   if (mathRendererSelect) {
     mathRendererSelect.setAttribute("aria-label", t("math.rendererAria"));
     const katexOption = mathRendererSelect.querySelector('option[value="katex"]');
@@ -432,6 +363,8 @@ async function setLang(lang) {
 let rootHandle = null;
 let activePath = null;
 let cachedHeadings = [];
+let cachedTocLinks = [];
+let lastActiveTocIndex = -1;
 let tocRAFPending = false;
 let activeTreeNode = null;
 let pendingAnchor = "";
@@ -449,31 +382,42 @@ let indexBuildToken = 0;
 const documentIndex = new Map();
 let idSeed = 0;
 
-function slugifyHeading(text) {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
+function escapeHtmlAttr(str) {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
+
+const DANGEROUS_SCHEME_RE = /^[a-z][a-z\d+.-]*:/i;
 
 marked.use({
   renderer: {
     html() { return ""; },
     heading({ tokens, depth, text }) {
-      const id = slugifyHeading(text);
+      const id = escapeHtmlAttr(slugifyHeading(text));
       const inner = this.parser.parseInline(tokens);
       return `<h${depth} id="${id}">${inner}</h${depth}>\n`;
     },
-    link({ href, title, text }) {
-      const safeTitle = title ? ` title="${title}"` : "";
+    link({ href, title, tokens }) {
+      const safeTitle = title ? ` title="${escapeHtmlAttr(title)}"` : "";
+      const inner = this.parser.parseInline(tokens);
       if (href && href.startsWith("#")) {
-        return `<a href="${href}" class="anchor-link"${safeTitle}>${text}</a>`;
+        return `<a href="${escapeHtmlAttr(href)}" class="anchor-link"${safeTitle}>${inner}</a>`;
       }
-      if (href && !/^(https?:\/\/|\/\/|mailto:)/.test(href)) {
-        return `<a href="${href}" class="internal-link" data-href="${href}"${safeTitle}>${text}</a>`;
+      if (href && /^(https?:\/\/|\/\/|mailto:)/.test(href)) {
+        return `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer"${safeTitle}>${inner}</a>`;
       }
-      return `<a href="${href}" target="_blank" rel="noopener noreferrer"${safeTitle}>${text}</a>`;
+      if (href && DANGEROUS_SCHEME_RE.test(href)) {
+        return `<span${safeTitle}>${inner}</span>`;
+      }
+      if (href) {
+        return `<a href="${escapeHtmlAttr(href)}" class="internal-link" data-href="${escapeHtmlAttr(href)}"${safeTitle}>${inner}</a>`;
+      }
+      return `<span${safeTitle}>${inner}</span>`;
     },
   },
 });
@@ -750,49 +694,51 @@ function setMathRenderer(renderer) {
   }
 }
 
-function openSettingsDialog() {
-  if (!settingsDialog) return;
-  if (settingsDialog.open) return;
-  if (typeof settingsDialog.showModal === "function") {
-    settingsDialog.showModal();
-  } else {
-    settingsDialog.setAttribute("open", "");
+function setupDialog({ dialog, toggleButton, closeButton, onOpen } = {}) {
+  function open() {
+    if (!dialog) return;
+    if (dialog.open) return;
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute("open", "");
+    }
+    if (toggleButton) {
+      toggleButton.setAttribute("aria-pressed", "true");
+    }
+    if (onOpen) onOpen();
   }
-  if (settingsToggle) {
-    settingsToggle.setAttribute("aria-pressed", "true");
-  }
-}
 
-function closeSettingsDialog() {
-  if (!settingsDialog) return;
-  if (typeof settingsDialog.close === "function") {
-    settingsDialog.close();
-  } else {
-    settingsDialog.removeAttribute("open");
+  function close() {
+    if (!dialog) return;
+    if (typeof dialog.close === "function") {
+      dialog.close();
+    } else {
+      dialog.removeAttribute("open");
+    }
   }
-}
 
-function openPasteDialog() {
-  if (!pasteDialog) return;
-  if (pasteDialog.open) return;
-  if (typeof pasteDialog.showModal === "function") {
-    pasteDialog.showModal();
-  } else {
-    pasteDialog.setAttribute("open", "");
+  if (toggleButton) {
+    toggleButton.addEventListener("click", () => {
+      if (dialog?.open) { close(); } else { open(); }
+    });
   }
-  if (pasteToggle) {
-    pasteToggle.setAttribute("aria-pressed", "true");
+  if (closeButton) {
+    closeButton.addEventListener("click", () => close());
   }
-  requestAnimationFrame(() => pasteTextarea?.focus());
-}
+  if (dialog) {
+    dialog.addEventListener("close", () => {
+      if (toggleButton) {
+        toggleButton.setAttribute("aria-pressed", "false");
+        toggleButton.focus();
+      }
+    });
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) close();
+    });
+  }
 
-function closePasteDialog() {
-  if (!pasteDialog) return;
-  if (typeof pasteDialog.close === "function") {
-    pasteDialog.close();
-  } else {
-    pasteDialog.removeAttribute("open");
-  }
+  return { open, close };
 }
 
 function setStatus(text, loading = false) {
@@ -829,6 +775,26 @@ function setPreviewVisible(isVisible) {
   if (!isVisible) renderRecentHistory();
 }
 
+function resetWorkspaceState() {
+  openFiles.clear();
+  openOrder.length = 0;
+  activePath = null;
+  cachedHeadings = [];
+  cachedTocLinks = [];
+  tocRAFPending = false;
+  activeTreeNode = null;
+  pendingAnchor = "";
+  searchQuery = "";
+  currentSearchResults = { files: [], headings: [], content: [] };
+  documentIndex.clear();
+  indexBuildToken += 1;
+  previewAssets.clear();
+  if (workspaceSearchInput) {
+    workspaceSearchInput.value = "";
+  }
+  hideSearchResults();
+}
+
 async function restoreFolder(record) {
   try {
     const permission = await record.handle.queryPermission({ mode: "read" });
@@ -840,11 +806,11 @@ async function restoreFolder(record) {
       }
     }
     rootHandle = record.handle;
-    openFiles.clear();
-    openOrder.length = 0;
-    activePath = null;
+    resetWorkspaceState();
+    setPreviewVisible(false);
     await renderTree();
     await saveHistory(record.folderName, record.handle);
+    void buildWorkspaceIndex();
     return true;
   } catch {
     showToast(t("recent.folderNotFound"));
@@ -968,6 +934,8 @@ function generateTOC() {
   if (!tocEl || !tocListContainer) return;
   const headings = Array.from(previewEl.querySelectorAll("h1, h2, h3, h4"));
   cachedHeadings = headings;
+  cachedTocLinks = [];
+  lastActiveTocIndex = -1;
   tocListContainer.innerHTML = "";
 
   if (headings.length === 0) {
@@ -997,6 +965,7 @@ function generateTOC() {
     });
     item.appendChild(link);
     list.appendChild(item);
+    cachedTocLinks.push(link);
   });
   tocListContainer.appendChild(list);
   updateTOCActive();
@@ -1018,23 +987,29 @@ function updateTOCActive() {
   tocRAFPending = true;
   requestAnimationFrame(() => {
     tocRAFPending = false;
-    const scrollPos = viewerEl.scrollTop + 64;
-    let activeId = null;
-    for (const heading of cachedHeadings) {
-      if (heading.offsetTop <= scrollPos) activeId = heading.id;
+    const scrollPos = viewerEl.scrollTop + TOC_SCROLL_OFFSET;
+    let activeIndex = -1;
+    for (let i = 0; i < cachedHeadings.length; i++) {
+      if (cachedHeadings[i].offsetTop <= scrollPos) activeIndex = i;
       else break;
     }
-    tocEl.querySelectorAll(".toc-link").forEach((link) => {
-      const isActive = link.getAttribute("href") === `#${activeId}`;
-      link.classList.toggle("active", isActive);
-      if (isActive && tocContentEl) {
+    if (activeIndex === lastActiveTocIndex) return;
+    const prevIndex = lastActiveTocIndex;
+    lastActiveTocIndex = activeIndex;
+    if (prevIndex >= 0 && prevIndex < cachedTocLinks.length) {
+      cachedTocLinks[prevIndex].classList.remove("active");
+    }
+    if (activeIndex >= 0 && activeIndex < cachedTocLinks.length) {
+      const link = cachedTocLinks[activeIndex];
+      link.classList.add("active");
+      if (tocContentEl) {
         const linkRect = link.getBoundingClientRect();
         const containerRect = tocContentEl.getBoundingClientRect();
         if (linkRect.top < containerRect.top || linkRect.bottom > containerRect.bottom) {
           tocContentEl.scrollTop += linkRect.top - containerRect.top - containerRect.height / 2 + linkRect.height / 2;
         }
       }
-    });
+    }
   });
 }
 
@@ -1087,14 +1062,20 @@ async function buildWorkspaceIndex() {
   try {
     const files = await collectMarkdownPaths(rootHandle);
 
-    for (const entry of files) {
-      if (token !== indexBuildToken) {
-        return;
-      }
-
-      const file = await entry.handle.getFile();
-      const content = await file.text();
-      documentIndex.set(entry.path, buildDocumentRecord({ path: entry.path, content }));
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      if (token !== indexBuildToken) return;
+      const batch = files.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (entry) => {
+          if (token !== indexBuildToken) return;
+          const file = await entry.handle.getFile();
+          const content = await file.text();
+          if (token !== indexBuildToken) return;
+          documentIndex.set(entry.path, buildDocumentRecord({ path: entry.path, content }));
+        })
+      );
+      if (token !== indexBuildToken) return;
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
   } catch (error) {
@@ -1156,7 +1137,7 @@ async function openSearchResult(path, anchor = "") {
 
   const fileHandle = await findFileHandle(path);
   if (!fileHandle) {
-    alert(t("alert.fileNotFound", { path }));
+    showToast(t("alert.fileNotFound", { path }));
     return;
   }
 
@@ -1282,7 +1263,7 @@ function applyPendingAnchor() {
   if (!target) {
     const missingAnchor = pendingAnchor;
     pendingAnchor = "";
-    alert(t("alert.anchorNotFound", { path: `${activePath || ""}#${missingAnchor}` }));
+    showToast(t("alert.anchorNotFound", { path: `${activePath || ""}#${missingAnchor}` }));
     return false;
   }
 
@@ -1483,6 +1464,7 @@ function updateReloadFileButton() {
 }
 
 function closeFile(path) {
+  const wasActive = activePath === path;
   const file = openFiles.get(path);
   openFiles.delete(path);
   scrollPositions.delete(path);
@@ -1492,9 +1474,13 @@ function closeFile(path) {
   }
   const index = openOrder.indexOf(path);
   if (index >= 0) openOrder.splice(index, 1);
-  if (activePath === path) activePath = openOrder[0] ?? null;
-  renderTabs();
-  renderPreview();
+  if (wasActive) {
+    activePath = openOrder[0] ?? null;
+    renderTabs();
+    renderPreview();
+  } else {
+    renderTabs();
+  }
 }
 
 function closeAllFiles() {
@@ -1535,7 +1521,7 @@ async function openFile(fileHandle, path, sourceButton) {
   setActiveFile(path);
   setStatus(t("status.opened", { path }));
   if (rootHandle) {
-    await saveHistory(rootHandle.name, rootHandle, [{ name: file.name, path }]);
+    void saveHistory(rootHandle.name, rootHandle, [{ name: file.name, path }]);
   }
 }
 
@@ -1790,11 +1776,7 @@ previewEl.addEventListener("click", async (event) => {
       popup.close();
     }
     const message = t("alert.assetNotFound", { path: href }) || href;
-    if (typeof globalThis.showToast === "function") {
-      globalThis.showToast(message);
-    } else {
-      alert(message);
-    }
+    showToast(message);
   }
 });
 
@@ -1802,22 +1784,7 @@ openFolderButton.addEventListener("click", async () => {
   if (!window.showDirectoryPicker) { setStatus(t("status.unsupported")); showToast(t("status.unsupported")); return; }
   try {
     rootHandle = await window.showDirectoryPicker();
-    openFiles.clear();
-    openOrder.length = 0;
-    activePath = null;
-    cachedHeadings = [];
-    tocRAFPending = false;
-    activeTreeNode = null;
-    pendingAnchor = "";
-    searchQuery = "";
-    currentSearchResults = { files: [], headings: [], content: [] };
-    documentIndex.clear();
-    indexBuildToken += 1;
-    previewAssets.clear();
-    if (workspaceSearchInput) {
-      workspaceSearchInput.value = "";
-    }
-    hideSearchResults();
+    resetWorkspaceState();
     setPreviewVisible(false);
     await renderTree();
     await saveHistory(rootHandle.name, rootHandle);
@@ -1871,8 +1838,8 @@ function setSidebarCollapsed(collapsed) {
   appEl.classList.toggle("sidebar-collapsed", collapsed);
   if (collapsed) {
     const current = parseInt(appEl.style.getPropertyValue("--sidebar-width"), 10);
-    if (current > 40) savedSidebarWidth = current;
-    appEl.style.setProperty("--sidebar-width", "40px");
+    if (current > SIDEBAR_COLLAPSED_WIDTH) savedSidebarWidth = current;
+    appEl.style.setProperty("--sidebar-width", `${SIDEBAR_COLLAPSED_WIDTH}px`);
   } else appEl.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
   if (sidebarToggle) {
     sidebarToggle.setAttribute("aria-pressed", collapsed ? "true" : "false");
@@ -1888,7 +1855,7 @@ if (resizerEl) {
     const startX = e.clientX, startWidth = sidebarEl.getBoundingClientRect().width;
     resizerEl.classList.add("dragging");
     const onMouseMove = (me) => {
-      const nw = Math.max(160, Math.min(600, startWidth + me.clientX - startX));
+      const nw = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, startWidth + me.clientX - startX));
       appEl.style.setProperty("--sidebar-width", `${nw}px`);
     };
     const onMouseUp = () => {
@@ -1909,60 +1876,20 @@ if (resizerEl) {
 
 if (langToggle) langToggle.addEventListener("click", () => setLang(currentLang === "zh-TW" ? "en" : "zh-TW"));
 if (reloadFileBtn) reloadFileBtn.addEventListener("click", () => void reloadActiveFile());
-if (settingsToggle) {
-  settingsToggle.addEventListener("click", () => {
-    if (settingsDialog?.open) {
-      closeSettingsDialog();
-      return;
-    }
-    openSettingsDialog();
-  });
-}
-if (pasteToggle) {
-  pasteToggle.addEventListener("click", () => {
-    if (pasteDialog?.open) {
-      closePasteDialog();
-      return;
-    }
-    openPasteDialog();
-  });
-}
-if (settingsCloseButton) {
-  settingsCloseButton.addEventListener("click", () => {
-    closeSettingsDialog();
-  });
-}
-if (pasteCloseButton) {
-  pasteCloseButton.addEventListener("click", () => {
-    closePasteDialog();
-  });
-}
-if (settingsDialog) {
-  settingsDialog.addEventListener("close", () => {
-    if (settingsToggle) {
-      settingsToggle.setAttribute("aria-pressed", "false");
-      settingsToggle.focus();
-    }
-  });
-  settingsDialog.addEventListener("click", (event) => {
-    if (event.target === settingsDialog) {
-      closeSettingsDialog();
-    }
-  });
-}
-if (pasteDialog) {
-  pasteDialog.addEventListener("close", () => {
-    if (pasteToggle) {
-      pasteToggle.setAttribute("aria-pressed", "false");
-      pasteToggle.focus();
-    }
-  });
-  pasteDialog.addEventListener("click", (event) => {
-    if (event.target === pasteDialog) {
-      closePasteDialog();
-    }
-  });
-}
+
+setupDialog({
+  dialog: settingsDialog,
+  toggleButton: settingsToggle,
+  closeButton: settingsCloseButton,
+});
+
+const { close: closePasteDialog } = setupDialog({
+  dialog: pasteDialog,
+  toggleButton: pasteToggle,
+  closeButton: pasteCloseButton,
+  onOpen: () => requestAnimationFrame(() => pasteTextarea?.focus()),
+});
+
 if (pasteClearButton) {
   pasteClearButton.addEventListener("click", () => {
     if (pasteTextarea) {
@@ -2036,9 +1963,11 @@ if (workspaceEl) {
 }
 
 if (workspaceSearchInput) {
+  let searchDebounceTimer = null;
   workspaceSearchInput.addEventListener("input", (event) => {
     const nextQuery = event.target instanceof HTMLInputElement ? event.target.value : "";
-    runSearch(nextQuery);
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => runSearch(nextQuery), 180);
   });
 }
 
