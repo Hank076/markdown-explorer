@@ -1864,3 +1864,51 @@ html[data-prose-theme="bear"][data-theme="dark"] {
   --prose-h-accent: #fbbf24;
   --prose-bg-accent: #1c1008;
 }
+
+/* ── 列印 / 匯出 PDF ───────────────────────────── */
+@media print {
+  /* 隱藏所有 app chrome，只留預覽內容 */
+  .sidebar,
+  .sidebar-resizer,
+  .topbar,
+  #toc,
+  #statusbar,
+  .search-shell,
+  .empty-state,
+  .settings-panel,
+  .paste-panel {
+    display: none !important;
+  }
+
+  /* 攤平佈局容器，解除高度/捲動限制，讓預覽依文件流分頁 */
+  html,
+  body,
+  .app,
+  .workspace,
+  .viewer,
+  #viewer-container {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  /* 預覽全寬、亮底深字（覆寫暗色主題色票） */
+  #preview {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+  }
+
+  @page {
+    margin: 18mm;
+  }
+}
