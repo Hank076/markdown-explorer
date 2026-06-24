@@ -32,7 +32,7 @@
   "aria.settingsClose": "關閉設定",
   "aria.pasteOpen": "貼上 Markdown",
   "aria.pasteClose": "關閉貼上視窗",
-  "aria.reloadFile": "重新載入目前檔案",
+  "aria.reloadFile": "重新載入（檔案與資料夾）",
   "reload.loading": "重新載入：{path}",
   "reload.loaded": "已重新載入：{path}",
   "reload.failed": "重新載入失敗：{path}",

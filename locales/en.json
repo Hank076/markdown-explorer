@@ -32,7 +32,7 @@
   "aria.settingsClose": "Close settings",
   "aria.pasteOpen": "Paste Markdown",
   "aria.pasteClose": "Close paste dialog",
-  "aria.reloadFile": "Reload current file",
+  "aria.reloadFile": "Reload (file & folder tree)",
   "reload.loading": "Reloading: {path}",
   "reload.loaded": "Reloaded: {path}",
   "reload.failed": "Reload failed: {path}",

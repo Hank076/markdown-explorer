@@ -1283,7 +1283,7 @@ function createNodeButton(label, icon, depth = 0) {
   return button;
 }
 
-function renderTreeNode(parentEl, entry, depth, parentPath) {
+function renderTreeNode(parentEl, entry, depth, parentPath, expandedPaths, pending) {
   const nodeId = makeId();
   const currentPath = `${parentPath}${entry.name}`;
   handleMap.set(nodeId, entry.handle);
@@ -1321,6 +1321,19 @@ function renderTreeNode(parentEl, entry, depth, parentPath) {
     });
     wrapper.append(button, children);
     parentEl.appendChild(wrapper);
+
+    if (expandedPaths?.has(currentPath)) {
+      button.dataset.expanded = "true";
+      children.hidden = false;
+      button.querySelector(".icon").textContent = "📂";
+      button.dataset.loaded = "true";
+      const replay = readDirectoryEntries(entry.handle).then((childEntries) => {
+        const childPending = [];
+        childEntries.forEach((child) => renderTreeNode(children, child, depth + 1, `${currentPath}/`, expandedPaths, childPending));
+        return Promise.all(childPending);
+      });
+      pending?.push(replay);
+    }
   } else {
     const button = createNodeButton(entry.name, "📄", depth);
     button.dataset.nodeId = nodeId;
@@ -1331,12 +1344,14 @@ function renderTreeNode(parentEl, entry, depth, parentPath) {
   }
 }
 
-async function renderTree() {
+async function renderTree(expandedPaths) {
   treeEl.innerHTML = "";
   if (!rootHandle) return;
   setStatus(t("status.scanning"), true);
   const entries = await readDirectoryEntries(rootHandle);
-  entries.forEach((entry) => renderTreeNode(treeEl, entry, 0, ""));
+  const pending = [];
+  entries.forEach((entry) => renderTreeNode(treeEl, entry, 0, "", expandedPaths, pending));
+  await Promise.all(pending);
   setStatus(t("status.ready"));
 }
 
@@ -1459,8 +1474,7 @@ function renderTabs() {
 
 function updateReloadFileButton() {
   if (!reloadFileBtn) return;
-  const file = activePath ? openFiles.get(activePath) : null;
-  reloadFileBtn.disabled = !file?.handle;
+  reloadFileBtn.disabled = !rootHandle;
 }
 
 function closeFile(path) {
@@ -1526,37 +1540,41 @@ async function openFile(fileHandle, path, sourceButton) {
 }
 
 async function reloadActiveFile() {
-  if (!activePath) return;
-  const file = openFiles.get(activePath);
-  if (!file?.handle) {
-    showToast(t("reload.notAvailable"));
-    updateReloadFileButton();
-    return;
+  if (!rootHandle) return;
+  reloadFileBtn.disabled = true;
+
+  const expandedPaths = new Set(
+    Array.from(treeEl.querySelectorAll('[data-kind="directory"][data-expanded="true"]'))
+      .map((el) => el.dataset.path)
+  );
+
+  const file = activePath ? openFiles.get(activePath) : null;
+  if (file?.handle) {
+    const currentPath = activePath;
+    scrollPositions.set(currentPath, viewerEl.scrollTop);
+    setStatus(t("reload.loading", { path: currentPath }), true);
+    try {
+      const result = await reloadOpenFileContent(openFiles, currentPath);
+      if (!result.ok) {
+        showToast(t("reload.notAvailable"));
+      } else {
+        documentIndex.set(currentPath, buildDocumentRecord({ path: currentPath, content: result.content }));
+        runSearch(searchQuery);
+        if (activePath === currentPath) {
+          renderPreview();
+        }
+        setStatus(t("reload.loaded", { path: currentPath }));
+      }
+    } catch (err) {
+      console.warn("[preview] Failed to reload file:", err);
+      setStatus(t("reload.failed", { path: currentPath }));
+      showToast(t("reload.failed", { path: currentPath }));
+    }
   }
 
-  const currentPath = activePath;
-  scrollPositions.set(currentPath, viewerEl.scrollTop);
-  setStatus(t("reload.loading", { path: currentPath }), true);
-  reloadFileBtn.disabled = true;
-  try {
-    const result = await reloadOpenFileContent(openFiles, currentPath);
-    if (!result.ok) {
-      showToast(t("reload.notAvailable"));
-      return;
-    }
-    documentIndex.set(currentPath, buildDocumentRecord({ path: currentPath, content: result.content }));
-    runSearch(searchQuery);
-    if (activePath === currentPath) {
-      renderPreview();
-    }
-    setStatus(t("reload.loaded", { path: currentPath }));
-  } catch (err) {
-    console.warn("[preview] Failed to reload file:", err);
-    setStatus(t("reload.failed", { path: currentPath }));
-    showToast(t("reload.failed", { path: currentPath }));
-  } finally {
-    updateReloadFileButton();
-  }
+  await renderTree(expandedPaths);
+  if (activePath) setActiveTree(activePath);
+  updateReloadFileButton();
 }
 
 function getPastedMarkdownTitle(content) {
