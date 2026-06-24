@@ -1520,8 +1520,9 @@ async function printPreview() {
     restored = true;
     window.removeEventListener("afterprint", restore);
     if (needsRestore) {
-      if (prevTheme) rootEl.setAttribute("data-theme", prevTheme);
-      if (prevProse) rootEl.setAttribute("data-prose-theme", prevProse);
+      if (prevTheme !== null) rootEl.setAttribute("data-theme", prevTheme);
+      else rootEl.removeAttribute("data-theme");
+      if (prevProse !== null) rootEl.setAttribute("data-prose-theme", prevProse);
       void renderPreview();
     }
   };
