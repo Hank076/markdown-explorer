@@ -33,6 +33,7 @@
   "aria.pasteOpen": "Paste Markdown",
   "aria.pasteClose": "Close paste dialog",
   "aria.reloadFile": "Reload (file & folder tree)",
+  "aria.printPdf": "Print / Export PDF",
   "reload.loading": "Reloading: {path}",
   "reload.loaded": "Reloaded: {path}",
   "reload.failed": "Reload failed: {path}",

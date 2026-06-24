@@ -33,6 +33,7 @@
   "aria.pasteOpen": "貼上 Markdown",
   "aria.pasteClose": "關閉貼上視窗",
   "aria.reloadFile": "重新載入（檔案與資料夾）",
+  "aria.printPdf": "列印/匯出 PDF",
   "reload.loading": "重新載入：{path}",
   "reload.loaded": "已重新載入：{path}",
   "reload.failed": "重新載入失敗：{path}",
