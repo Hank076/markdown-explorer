@@ -1484,8 +1484,49 @@ function updateReloadFileButton() {
   if (printBtn) printBtn.disabled = !activePath;
 }
 
+async function rerenderMermaidNeutral() {
+  const nodes = previewEl.querySelectorAll(".mermaid[data-source]");
+  if (nodes.length === 0) return;
+  const mermaid = await ensureMermaidLoaded();
+  if (!mermaid) return;
+  mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "strict" });
+  let index = 0;
+  for (const node of nodes) {
+    try {
+      const { svg } = await mermaid.render(`print-mermaid-${index++}`, node.dataset.source);
+      node.innerHTML = svg;
+    } catch (err) {
+      console.warn("[print] Failed to re-render Mermaid:", err);
+    }
+  }
+}
+
 async function printPreview() {
   if (!activePath) return;
+
+  const prevTheme = rootEl.getAttribute("data-theme");
+  const prevProse = rootEl.getAttribute("data-prose-theme");
+  const needsRestore = prevTheme === "dark" || (prevProse !== null && prevProse !== "default");
+
+  if (needsRestore) {
+    rootEl.setAttribute("data-theme", "light");
+    rootEl.removeAttribute("data-prose-theme");
+    await rerenderMermaidNeutral();
+  }
+
+  let restored = false;
+  const restore = () => {
+    if (restored) return;
+    restored = true;
+    window.removeEventListener("afterprint", restore);
+    if (needsRestore) {
+      if (prevTheme) rootEl.setAttribute("data-theme", prevTheme);
+      if (prevProse) rootEl.setAttribute("data-prose-theme", prevProse);
+      void renderPreview();
+    }
+  };
+  window.addEventListener("afterprint", restore);
+
   window.print();
 }
 
@@ -1712,6 +1753,7 @@ async function renderPreview() {
     if (language && language.toLowerCase() === "mermaid") {
       const container = document.createElement("div");
       container.className = "mermaid";
+      container.dataset.source = block.textContent;
       container.textContent = block.textContent;
       const pre = block.closest("pre");
       if (pre) pre.replaceWith(container);
