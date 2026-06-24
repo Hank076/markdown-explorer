@@ -1906,6 +1906,9 @@ html[data-prose-theme="bear"][data-theme="dark"] {
     overflow: visible !important;
     background: #ffffff !important;
     color: #1a1a1a !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 
   @page {
