@@ -1514,21 +1514,19 @@ async function printPreview() {
     await rerenderMermaidNeutral();
   }
 
-  let restored = false;
-  const restore = () => {
-    if (restored) return;
-    restored = true;
-    window.removeEventListener("afterprint", restore);
+  // Chromium's window.print() is synchronous (blocks until the print dialog
+  // closes), so restoring in finally has correct timing and needs no event
+  // listener. This app already requires Chrome/Edge.
+  try {
+    window.print();
+  } finally {
     if (needsRestore) {
       if (prevTheme !== null) rootEl.setAttribute("data-theme", prevTheme);
       else rootEl.removeAttribute("data-theme");
       if (prevProse !== null) rootEl.setAttribute("data-prose-theme", prevProse);
       void renderPreview();
     }
-  };
-  window.addEventListener("afterprint", restore);
-
-  window.print();
+  }
 }
 
 if (printBtn) {
