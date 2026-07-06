@@ -8,6 +8,7 @@ export async function reloadOpenFileContent(openFiles, path) {
   const content = await file.text();
   openFile.content = content;
   openFile.renderedHtml = null;
+  openFile.renderedNode = null;
   openFiles.set(path, openFile);
 
   return { ok: true, content };

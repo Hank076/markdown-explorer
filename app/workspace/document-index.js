@@ -127,12 +127,13 @@ export function buildDocumentRecord({ path, content }) {
     path,
     lowerPath: path.toLowerCase(),
     name: path.split("/").at(-1),
-    content,
     plainText,
     lowerText: plainText.toLowerCase(),
     headings,
   };
 }
+
+export const SEARCH_RESULT_LIMIT = 50;
 
 export function searchDocumentIndex(records, rawQuery) {
   const query = rawQuery.trim().toLowerCase();
@@ -195,5 +196,12 @@ export function searchDocumentIndex(records, rawQuery) {
     )
     .forEach(({ item }, i) => { content[i] = item; });
 
-  return { files, headings, content };
+  const totals = { files: files.length, headings: headings.length, content: content.length };
+
+  return {
+    files: files.slice(0, SEARCH_RESULT_LIMIT),
+    headings: headings.slice(0, SEARCH_RESULT_LIMIT),
+    content: content.slice(0, SEARCH_RESULT_LIMIT),
+    totals,
+  };
 }

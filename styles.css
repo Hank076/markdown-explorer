@@ -133,6 +133,10 @@ body {
   transition: grid-template-columns 0.25s ease;
 }
 
+.app.resizing {
+  transition: none;
+}
+
 .app.sidebar-collapsed .sidebar-resizer {
   display: none;
 }
@@ -870,6 +874,13 @@ body {
 
 .search-result-empty {
   color: var(--color-text-tertiary);
+  padding: var(--space-1) 0;
+}
+
+.search-result-more {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-sm);
   padding: var(--space-1) 0;
 }
 

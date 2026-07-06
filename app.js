@@ -374,7 +374,6 @@ let lastActiveTocIndex = -1;
 let tocRAFPending = false;
 let activeTreeNode = null;
 let pendingAnchor = "";
-const handleMap = new Map();
 const openFiles = new Map();
 const openOrder = [];
 const scrollPositions = new Map();
@@ -386,7 +385,6 @@ let searchQuery = "";
 let currentSearchResults = { files: [], headings: [], content: [] };
 let indexBuildToken = 0;
 const documentIndex = new Map();
-let idSeed = 0;
 
 function escapeHtmlAttr(str) {
   if (!str) return "";
@@ -442,6 +440,7 @@ let mathJaxLoadPromise = null;
 let mathJaxTypesetPromise = Promise.resolve();
 let renderPreviewToken = 0;
 let pastedMarkdownSeed = 0;
+let droppedMarkdownSeed = 0;
 
 const ICON_SUN = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const ICON_MOON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
@@ -785,6 +784,7 @@ function setPreviewVisible(isVisible) {
 function resetWorkspaceState() {
   openFiles.clear();
   openOrder.length = 0;
+  scrollPositions.clear();
   activePath = null;
   cachedHeadings = [];
   cachedTocLinks = [];
@@ -800,6 +800,7 @@ function resetWorkspaceState() {
     workspaceSearchInput.value = "";
   }
   hideSearchResults();
+  renderTabs();
 }
 
 async function restoreFolder(record) {
@@ -872,7 +873,8 @@ function buildRecentHistoryContent(history, { isSidebar = false } = {}) {
             // 同資料夾，直接開檔
             const fileHandle = await findFileHandle(f.path);
             if (fileHandle) {
-              await openFile(fileHandle, f.path, null);
+              const opened = await openFile(fileHandle, f.path, null);
+              if (opened === false) fileBtn.disabled = false;
             } else {
               showToast(t("alert.fileNotFound", { path: f.path }));
               fileBtn.disabled = false;
@@ -883,9 +885,11 @@ function buildRecentHistoryContent(history, { isSidebar = false } = {}) {
           if (!ok) { fileBtn.disabled = false; return; }
           const fileHandle = await findFileHandle(f.path);
           if (fileHandle) {
-            await openFile(fileHandle, f.path, null);
+            const opened = await openFile(fileHandle, f.path, null);
+            if (opened === false) fileBtn.disabled = false;
           } else {
             showToast(t("alert.fileNotFound", { path: f.path }));
+            fileBtn.disabled = false;
           }
         });
         fileLi.appendChild(fileBtn);
@@ -1020,8 +1024,6 @@ function updateTOCActive() {
   });
 }
 
-function makeId() { idSeed += 1; return `node-${idSeed}`; }
-
 async function readDirectoryEntries(dirHandle) {
   const entries = [];
   for await (const [name, handle] of dirHandle.entries()) {
@@ -1153,7 +1155,7 @@ async function openSearchResult(path, anchor = "") {
   hideSearchResults();
 }
 
-function renderSearchGroup(title, items) {
+function renderSearchGroup(title, items, total = items.length) {
   const group = document.createElement("section");
   group.className = "search-result-group";
 
@@ -1174,6 +1176,14 @@ function renderSearchGroup(title, items) {
   list.className = "search-result-list";
   items.forEach((item) => list.appendChild(item));
   group.appendChild(list);
+
+  const overflow = total - items.length;
+  if (overflow > 0) {
+    const more = document.createElement("p");
+    more.className = "search-result-more";
+    more.textContent = t("search.more", { count: overflow });
+    group.appendChild(more);
+  }
   return group;
 }
 
@@ -1225,10 +1235,15 @@ function renderSearchResults(results) {
     })
   );
 
+  const totals = results.totals ?? {
+    files: fileItems.length,
+    headings: headingItems.length,
+    content: contentItems.length,
+  };
   const groups = [
-    fileItems.length > 0 ? renderSearchGroup(t("search.files"), fileItems) : null,
-    headingItems.length > 0 ? renderSearchGroup(t("search.headings"), headingItems) : null,
-    contentItems.length > 0 ? renderSearchGroup(t("search.content"), contentItems) : null,
+    fileItems.length > 0 ? renderSearchGroup(t("search.files"), fileItems, totals.files) : null,
+    headingItems.length > 0 ? renderSearchGroup(t("search.headings"), headingItems, totals.headings) : null,
+    contentItems.length > 0 ? renderSearchGroup(t("search.content"), contentItems, totals.content) : null,
   ].filter(Boolean);
 
   if (groups.length === 0) {
@@ -1291,15 +1306,12 @@ function createNodeButton(label, icon, depth = 0) {
 }
 
 function renderTreeNode(parentEl, entry, depth, parentPath, expandedPaths, pending) {
-  const nodeId = makeId();
   const currentPath = `${parentPath}${entry.name}`;
-  handleMap.set(nodeId, entry.handle);
 
   if (entry.kind === "directory") {
     const wrapper = document.createElement("div");
     wrapper.className = "tree-entry";
     const button = createNodeButton(entry.name, "📁", depth);
-    button.dataset.nodeId = nodeId;
     button.dataset.path = currentPath;
     button.dataset.kind = "directory";
     button.dataset.loaded = "false";
@@ -1320,11 +1332,20 @@ function renderTreeNode(parentEl, entry, depth, parentPath, expandedPaths, pendi
       children.hidden = false;
       button.querySelector(".icon").textContent = "📂";
       if (button.dataset.loaded === "true") return;
-      button.dataset.loaded = "true";
       setStatus(t("status.readingFolder", { path: currentPath }), true);
-      const childEntries = await readDirectoryEntries(entry.handle);
-      childEntries.forEach((child) => renderTreeNode(children, child, depth + 1, `${currentPath}/`));
-      setStatus(t("status.readyPath", { path: currentPath }));
+      try {
+        const childEntries = await readDirectoryEntries(entry.handle);
+        childEntries.forEach((child) => renderTreeNode(children, child, depth + 1, `${currentPath}/`));
+        button.dataset.loaded = "true";
+        setStatus(t("status.readyPath", { path: currentPath }));
+      } catch (err) {
+        console.warn("[tree] Failed to read directory:", err);
+        children.hidden = true;
+        button.dataset.expanded = "false";
+        button.querySelector(".icon").textContent = "📁";
+        setStatus(t("status.ready"));
+        showToast(t("tree.readFailed", { path: currentPath }));
+      }
     });
     wrapper.append(button, children);
     parentEl.appendChild(wrapper);
@@ -1343,7 +1364,6 @@ function renderTreeNode(parentEl, entry, depth, parentPath, expandedPaths, pendi
     }
   } else {
     const button = createNodeButton(entry.name, "📄", depth);
-    button.dataset.nodeId = nodeId;
     button.dataset.path = currentPath;
     button.dataset.kind = "file";
     button.addEventListener("click", () => openFile(entry.handle, currentPath, button));
@@ -1508,17 +1528,21 @@ async function printPreview() {
   const prevProse = rootEl.getAttribute("data-prose-theme");
   const needsRestore = prevTheme === "dark" || (prevProse !== null && prevProse !== "default");
 
-  if (needsRestore) {
-    rootEl.setAttribute("data-theme", "light");
-    rootEl.removeAttribute("data-prose-theme");
-    await rerenderMermaidNeutral();
-  }
-
   // Chromium's window.print() is synchronous (blocks until the print dialog
   // closes), so restoring in finally has correct timing and needs no event
-  // listener. This app already requires Chrome/Edge.
+  // listener. This app already requires Chrome/Edge. The theme change and the
+  // Mermaid re-render are inside the try so that if rerenderMermaidNeutral
+  // rejects, the finally block still restores the theme (no theme stuck on
+  // light, no unhandled rejection).
   try {
+    if (needsRestore) {
+      rootEl.setAttribute("data-theme", "light");
+      rootEl.removeAttribute("data-prose-theme");
+      await rerenderMermaidNeutral();
+    }
     window.print();
+  } catch (err) {
+    console.warn("[print] Failed to prepare or print preview:", err);
   } finally {
     if (needsRestore) {
       if (prevTheme !== null) rootEl.setAttribute("data-theme", prevTheme);
@@ -1581,20 +1605,32 @@ function setActiveFile(path) {
   renderPreview();
 }
 
-async function openFile(fileHandle, path, sourceButton) {
+async function openFile(fileHandle, path, sourceButton, { isTemporary = false } = {}) {
   if (openFiles.has(path)) { setActiveFile(path); return; }
   setStatus(t("status.readingFile", { path }), true);
-  const file = await fileHandle.getFile();
-  const content = await file.text();
-  openFiles.set(path, { name: file.name, handle: fileHandle, content, renderedHtml: null });
+
+  let file;
+  let content;
+  try {
+    file = await fileHandle.getFile();
+    content = await file.text();
+  } catch (err) {
+    console.warn("[preview] Failed to open file:", err);
+    setStatus(t("status.ready"));
+    showToast(t("alert.openFailed", { path }));
+    return false;
+  }
+
+  openFiles.set(path, { name: file.name, handle: fileHandle, content, renderedHtml: null, renderedNode: null, isTemporary });
   documentIndex.set(path, buildDocumentRecord({ path, content }));
   openOrder.push(path);
   if (sourceButton) sourceButton.classList.add("active");
   setActiveFile(path);
   setStatus(t("status.opened", { path }));
-  if (rootHandle) {
+  if (rootHandle && !isTemporary) {
     void saveHistory(rootHandle.name, rootHandle, [{ name: file.name, path }]);
   }
+  return true;
 }
 
 async function reloadActiveFile() {
@@ -1691,14 +1727,35 @@ async function navigateToInternalLink(href) {
   }
 }
 
+function restorePreviewScroll(path) {
+  if (!applyPendingAnchor()) {
+    viewerEl.scrollTop = scrollPositions.get(path) ?? 0;
+  }
+}
+
 async function renderPreview() {
   const currentPath = activePath;
   const token = ++renderPreviewToken;
 
   if (!activePath) { setPreviewVisible(false); return; }
-  previewAssets.clear();
   const file = openFiles.get(activePath);
   if (!file) { setPreviewVisible(false); return; }
+
+  // Fast path: serve a fully post-processed DOM snapshot captured after the
+  // previous full render (math/Prism/Mermaid already applied). Only files with
+  // no workspace-relative assets are cached, so no blob URLs are involved and
+  // previewAssets need not be touched.
+  if (file.renderedNode) {
+    const snapshot = file.renderedNode.cloneNode(true);
+    previewAssets.clear();
+    previewEl.replaceChildren(...snapshot.childNodes);
+    generateTOC();
+    setPreviewVisible(true);
+    restorePreviewScroll(currentPath);
+    return;
+  }
+
+  previewAssets.clear();
   if (!file.renderedHtml) {
     file.renderedHtml = marked.parse(file.content);
   }
@@ -1706,11 +1763,13 @@ async function renderPreview() {
   assignRenderedHeadingIds(documentIndex.get(activePath));
 
   const previewPath = activePath;
+  let hasWorkspaceAssets = false;
   previewEl.querySelectorAll("img").forEach((image) => {
     const src = image.getAttribute("src") || "";
     if (!isWorkspaceRelativeHref(src)) {
       return;
     }
+    hasWorkspaceAssets = true;
 
     void resolveAssetUrl({
       href: src,
@@ -1761,18 +1820,18 @@ async function renderPreview() {
 
   generateTOC();
   setPreviewVisible(true);
-  if (!applyPendingAnchor()) {
-    viewerEl.scrollTop = scrollPositions.get(currentPath) ?? 0;
-  }
 
+  let highlightDone = Promise.resolve();
   const highlightTargets = previewEl.querySelectorAll("pre code");
   if (highlightTargets.length > 0) {
     try {
       const prism = await ensurePrismLoaded();
       if (token === renderPreviewToken && activePath === currentPath && prism) {
-        const doHighlight = () => prism.highlightAllUnder(previewEl);
-        if ("requestIdleCallback" in window) requestIdleCallback(doHighlight);
-        else setTimeout(doHighlight, 0);
+        highlightDone = new Promise((resolve) => {
+          const doHighlight = () => { prism.highlightAllUnder(previewEl); resolve(); };
+          if ("requestIdleCallback" in window) requestIdleCallback(doHighlight);
+          else setTimeout(doHighlight, 0);
+        });
       }
     } catch (err) {
       console.warn("[preview] Failed to load Prism:", err);
@@ -1797,6 +1856,24 @@ async function renderPreview() {
       });
     }
   }
+
+  if (token !== renderPreviewToken || activePath !== currentPath) {
+    return;
+  }
+
+  // Restore scroll only after Mermaid has swapped in its SVGs, so the final
+  // layout height is settled and the saved position lands accurately.
+  restorePreviewScroll(currentPath);
+
+  // Capture a snapshot once the whole pipeline has finished (including the
+  // deferred Prism pass). Skip files with workspace assets, whose blob URLs
+  // would be revoked on the next previewAssets.clear().
+  await highlightDone;
+  if (token === renderPreviewToken && activePath === currentPath && !hasWorkspaceAssets) {
+    const snapshot = document.createElement("div");
+    snapshot.append(...[...previewEl.childNodes].map((node) => node.cloneNode(true)));
+    file.renderedNode = snapshot;
+  }
 }
 
 previewEl.addEventListener("click", async (event) => {
@@ -1806,8 +1883,22 @@ previewEl.addEventListener("click", async (event) => {
     return;
   }
 
-  const href = link.getAttribute("href") || "";
+  // Cover both HTML anchors and SVG <a> (e.g. MathJax \href output, which may
+  // expose the URL via xlink:href instead of href).
+  const href =
+    link.getAttribute("href") ||
+    link.getAttribute("xlink:href") ||
+    link.getAttributeNS("http://www.w3.org/1999/xlink", "href") ||
+    "";
   if (!href) {
+    return;
+  }
+
+  // Block javascript:/data: and similar even when smuggled through control
+  // chars (tabs/newlines that the URL parser strips before executing).
+  const strippedHref = href.replace(/[\u0000-\u0020]/g, "");
+  if (DANGEROUS_SCHEME_RE.test(strippedHref) && !/^(https?:|mailto:)/i.test(strippedHref)) {
+    event.preventDefault();
     return;
   }
 
@@ -1867,7 +1958,13 @@ openFolderButton.addEventListener("click", async () => {
     await saveHistory(rootHandle.name, rootHandle);
     void buildWorkspaceIndex();
   } catch (error) {
-    setStatus(t("status.cancelled"));
+    if (error?.name === "AbortError") {
+      setStatus(t("status.cancelled"));
+    } else {
+      console.warn("[workspace] Failed to open folder:", error);
+      setStatus(t("status.ready"));
+      showToast(t("alert.folderFailed", { message: error?.message ?? String(error) }));
+    }
   }
 });
 
@@ -1904,6 +2001,11 @@ if (themeToggle) {
     localStorage.setItem(themeStorageKey, nextTheme);
     if (activePath) scrollPositions.set(activePath, viewerEl.scrollTop);
     applyTheme(nextTheme);
+    // Mermaid theme is global, so every cached snapshot with a diagram is now
+    // stale. Drop all DOM snapshots; each tab re-renders fresh when next shown.
+    for (const openFile of openFiles.values()) {
+      openFile.renderedNode = null;
+    }
     if (previewEl.querySelector(".mermaid, mjx-container")) {
       void renderPreview();
     }
@@ -1931,12 +2033,14 @@ if (resizerEl) {
     e.preventDefault();
     const startX = e.clientX, startWidth = sidebarEl.getBoundingClientRect().width;
     resizerEl.classList.add("dragging");
+    appEl.classList.add("resizing");
     const onMouseMove = (me) => {
       const nw = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, startWidth + me.clientX - startX));
       appEl.style.setProperty("--sidebar-width", `${nw}px`);
     };
     const onMouseUp = () => {
       resizerEl.classList.remove("dragging");
+      appEl.classList.remove("resizing");
       savedSidebarWidth = parseInt(appEl.style.getPropertyValue("--sidebar-width"), 10) || savedSidebarWidth;
       localStorage.setItem(sidebarWidthStorageKey, savedSidebarWidth);
       document.body.style.cursor = "";
@@ -2029,13 +2133,23 @@ if (workspaceEl) {
     workspaceEl.classList.remove("drag-over");
     const item = e.dataTransfer.items[0];
     if (!item) return;
-    const handle = await item.getAsFileSystemHandle();
-    if (!handle || handle.kind !== "file") return;
-    if (!handle.name.toLowerCase().endsWith(".md")) {
-      showToast(t("alert.onlyMarkdown"));
-      return;
+    try {
+      const handle = await item.getAsFileSystemHandle();
+      if (!handle || handle.kind !== "file") return;
+      if (!handle.name.toLowerCase().endsWith(".md")) {
+        showToast(t("alert.onlyMarkdown"));
+        return;
+      }
+      // Open dropped external files under a temporary key so they don't
+      // collide with (or overwrite) workspace-relative index records and so
+      // closeFile can purge their index entry.
+      droppedMarkdownSeed += 1;
+      const path = `dropped/${Date.now()}-${droppedMarkdownSeed}-${handle.name}`;
+      await openFile(handle, path, null, { isTemporary: true });
+    } catch (err) {
+      console.warn("[workspace] Failed to open dropped file:", err);
+      showToast(t("alert.openFailed", { path: item?.getAsFile?.()?.name ?? "" }));
     }
-    await openFile(handle, handle.name, null);
   });
 }
 
